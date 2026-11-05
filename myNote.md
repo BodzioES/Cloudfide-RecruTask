@@ -92,6 +92,13 @@ Otwarte kwestie:
   wystarczyć.
 - Zwracać `source` i `heading`, żeby agent mógł wskazać, skąd wzięła się
   odpowiedź.
+- **Pytania testowe bez słów kluczowych:** jeśli pytanie nie dzieli ani
+  jednego słowa z dokumentami (np. „How expensive is renting a two-wheeler?”),
+  `search_policies` zwróci `found: false` — i to jest poprawne zachowanie
+  wyszukiwarki, ale model może nie wiedzieć, co z tym zrobić. W ewaluacji
+  trzeba mieć co najmniej jedno takie pytanie i sprawdzić, czy agent mówi
+  „nie mam tego w dokumentach, skontaktuj się ze staffem”, zamiast zmyślać.
+  Dopiero jeśli to zawiedzie, rozważyć synonimy albo embeddingi.
 
 ## 5. Zachowanie modelu do sprawdzenia
 
@@ -124,6 +131,8 @@ Otwarte kwestie:
   nieznany numer rezerwacji.
 - Asercje: oczekiwany podzbiór narzędzi, regex na kwoty (akceptować
   `340.00`), odmowa wykrywana po danych kontaktowych, brak wymyślonych liczb.
+- Jedno pytanie celowo bez wspólnych słów z dokumentami — sprawdza fallback
+  „nie wiem, zapytaj staff”, a nie trafność wyszukiwarki.
 - Uczciwie raportować porażki w `eval/results.md`, z jednym zdaniem
   uzasadnienia dla każdej.
 - Pytania deterministyczne; `temperature = 0`.
