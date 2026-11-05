@@ -1,107 +1,129 @@
-# Working notes
+# Notatki robocze
 
-Personal scratchpad for the CityWheels assignment: open questions, decisions
-that need a second look, and things to verify before the final commit.
+Osobisty brudnopis do zadania CityWheels: otwarte pytania, decyzje do
+zweryfikowania i rzeczy do sprawdzenia przed ostatnim commitem.
 
-This file is not part of the deliverable. Fold anything useful into
-`SOLUTION.md` (or delete this file) before sending the repository link.
+Ten plik nie jest częścią rozwiązania. Przed wysłaniem linku do repozytorium
+przenieś z niego to, co ważne, do `SOLUTION.md` (albo usuń cały plik).
 
 ---
 
-## 1. Rounding policy — decided, but worth revisiting
+## 1. Polityka zaokrąglania — zdecydowana, ale warta powrotu
 
-Current choice: `ROUND_HALF_UP`, applied **once**, to the final result
-(`money.quantize`). All amounts are `Decimal`; `bookings.json` is parsed with
-`parse_float=Decimal`, so no `float` ever touches the maths.
+Obecny wybór: `ROUND_HALF_UP`, stosowany **raz**, do końcowego wyniku
+(`money.quantize`). Wszystkie kwoty to `Decimal`; `bookings.json` jest
+czytany z `parse_float=Decimal`, więc `float` nigdy nie dotyka obliczeń.
 
-Open points:
+Otwarte kwestie:
 
-- **Who wins on a tie?** For a **refund** (money leaving the shop), half-up
-  gives the customer at most half a cent. For a **charge** (late fee, damage),
-  the same rule gives the shop at most half a cent. A single global constant is
-  therefore only safe while we compute refunds; a future charge must pick its
-  own policy explicitly.
-- **Alternatives:** `ROUND_HALF_EVEN` (unbiased over many ties, standard in
-  accounting) and truncation (always underpays the customer — rejected).
-- **Does it matter today?** No. Prices are whole euros and refund percentages
-  are 0/50/100, so rounding never changes a value. The risk appears only if
-  prices or percentages gain cents.
-- **Safeguards already in place:** exact `Decimal` arithmetic, single rounding
-  at the end, explicit `ROUNDING` constant, tie tests
-  (`50% of 12.35 -> 6.18`, `50% of 12.34 -> 6.17`), no-float regression test.
-- **Safeguards to add in stage 2:** invariants — parts sum to the total,
-  `total <= rental_price + deposit`, booking fee refund is always zero,
-  non-cancellable bookings refund nothing.
-- **To document in `SOLUTION.md`:** a short "Rounding policy" section stating
-  the rule, who it favours, and when it would start to matter.
-- **Open question for the reviewer:** should refunds round *up* (ceiling)
-  instead of half-up to be unambiguously customer-friendly? It is a one-line
-  change if the answer is yes.
+- **Kto zyskuje przy trafieniu w połówkę?** Przy **zwrocie** (pieniądze
+  wychodzą ze sklepu) half-up daje klientowi maksymalnie pół grosza. Przy
+  **obciążeniu** (opłata za przetrzymanie, szkoda) ta sama reguła daje
+  maksymalnie pół grosza sklepowi. Jeden globalny `ROUNDING` jest więc
+  bezpieczny tylko dopóki liczymy zwroty; przyszła opłata musi wybrać własną
+  politykę jawnie.
+- **Alternatywy:** `ROUND_HALF_EVEN` (bezstronny przy wielu transakcjach,
+  standard w księgowości) i obcinanie (zawsze zaniża zwrot klientowi —
+  odrzucone).
+- **Czy to ma dziś znaczenie?** Nie. Ceny są w całych euro, a procenty zwrotu
+  to 0/50/100, więc zaokrąglanie nigdy nie zmienia wartości. Ryzyko pojawia
+  się dopiero, gdy ceny albo procenty dostaną grosze.
+- **Zabezpieczenia, które już są:** dokładna arytmetyka `Decimal`,
+  pojedyncze zaokrąglenie na końcu, jawna stała `ROUNDING`, testy trafienia
+  w połówkę (`50% z 12.35 -> 6.18`, `50% z 12.34 -> 6.17`), test braku
+  floatowego śmiecia.
+- **Zabezpieczenia dodane w etapie 2:** niezmienniki — części sumują się do
+  całości, `total <= rental_price + deposit`, zwrot booking fee zawsze zero,
+  rezerwacje nieanulowalne nic nie zwracają.
+- **Do opisania w `SOLUTION.md`:** krótka sekcja „Rounding policy” z regułą,
+  informacją kogo faworyzuje i kiedy zaczęłaby mieć znaczenie.
+- **Pytanie do rekrutera:** czy zwroty mają być zaokrąglane w górę
+  (`ROUND_CEILING`) zamiast half-up, żeby były jednoznacznie korzystne dla
+  klienta? To zmiana jednej linijki, jeśli odpowiedź brzmi „tak”.
 
-## 2. Refund semantics — our reading of the documents
+## 2. Semantyka zwrotu — nasze odczytanie dokumentów
 
-- "How much will I get back" = rental refund + deposit. The booking fee is
-  never refunded.
-- The deposit is always refunded in full for a `confirmed` booking, including
-  the `< 24 h` case where the rental refund is 0%.
-- Statuses `in_progress`, `completed`, `cancelled`: nothing is refunded —
-  including the deposit. This is our reading of "nothing is refunded for them".
-  **Verify** this interpretation if the reviewer disagrees.
-- Voucher bookings: refunded as a new voucher, never as money; the deposit
-  follows the original payment method.
-- Boundaries are inclusive: `>= 48 h` -> 100%, `>= 24 h and < 48 h` -> 50%,
-  `< 24 h` -> 0%. Compare exact `timedelta`, never whole hours.
-- A `confirmed` booking whose start is already in the past still follows the
-  `< 24 h` rule (0% + deposit). Not present in the data, covered by a test.
+- „Ile dostanę z powrotem” = zwrot najmu + kaucja. Booking fee nigdy nie
+  wraca.
+- Kaucja zawsze wraca w pełni dla rezerwacji `confirmed`, także w przypadku
+  `< 24 h`, gdzie zwrot najmu wynosi 0%.
+- Statusy `in_progress`, `completed`, `cancelled`: nic nie wraca — łącznie
+  z kaucją. To nasze odczytanie zdania „nothing is refunded for them”.
+  **Zweryfikować**, jeśli rekruter interpretuje to inaczej.
+- Rezerwacje z voucher: zwrot jako nowy voucher, nigdy jako pieniądze;
+  kaucja wraca tą samą metodą, jaką była zapłacona.
+- Granice są inkluzywne: `>= 48 h` -> 100%, `>= 24 h i < 48 h` -> 50%,
+  `< 24 h` -> 0%. Porównujemy dokładny `timedelta`, nigdy „pełne godziny”.
+- Rezerwacja `confirmed`, której start już minął, nadal podlega regule
+  `< 24 h` (0% + kaucja). Nie ma takiej w danych, ale jest pokryta testem.
 
-## 3. Data quirks to remember
+## 3. Osobliwości danych
 
-- `rental_price_eur` is stored in the data — use it for refunds, do not
-  recompute it. Optional sanity check against `prices.md`: CW-1009 is 7 days
-  with the 15% discount (140 -> 119).
-- CW-1010 and CW-1006 have `booking_fee_eur = 0` (booked in the shop).
-- Only CW-1004 was paid with a voucher.
-- All delivered bookings are in June. DST behaviour is covered by a synthetic
-  October test, not by real data.
+- `rental_price_eur` jest zapisane w danych — używamy go do zwrotu, nie
+  przeliczamy od nowa. Opcjonalny test spójności z `prices.md`: CW-1009 to
+  7 dni z rabatem 15% (140 -> 119).
+- CW-1010 i CW-1006 mają `booking_fee_eur = 0` (rezerwacja w sklepie).
+- Tylko CW-1004 była zapłacona voucherem.
+- Wszystkie dostarczone rezerwacje są z czerwca. Zachowanie przy zmianie czasu
+  pokrywa syntetyczny test październikowy, nie prawdziwe dane.
 
-## 4. Policy retrieval
+## 3a. Pułapki znalezione podczas implementacji
 
-- Deterministic keyword scoring over Markdown headings; no embeddings, no
-  network.
-- Risk: paraphrases ("how late are you open", "cost of an electric bike") may
-  miss the right chunk. Test against every example question from the README.
-- Cap the size of chunks returned to the model; `top_k = 3` should be enough.
-- Return `source` and `heading` so the agent can cite where an answer came
-  from.
+- Python odejmuje dwie daty ze strefą, jeśli mają **ten sam obiekt
+  `ZoneInfo`**, tak jakby były naiwne (arytmetyka zegara ściennego),
+  ignorując zmianę offsetu przy DST. `clock.delta_until` konwertuje obie
+  strony do UTC; pokryte testem na 23/25 października 2026 (48 godzin
+  bezwzględnych, 47 godzin na zegarze).
+- `json.loads(..., parse_float=Decimal)` to ten szczegół, który trzyma kwoty
+  z dala od floata. Bez niego każdy późniejszy krok na `Decimal` jest tylko
+  kosmetyką.
+- Niezmienniki zwrotu są testowane dla każdej dostarczonej rezerwacji:
+  części sumują się do całości, `total <= rental_price + deposit`, zwrot
+  booking fee jest zerowy, rezerwacje nieanulowalne nic nie zwracają.
 
-## 5. Model behaviour to verify
+## 4. Wyszukiwanie polityk
 
-- The model must call `calculate_refund` instead of doing mental arithmetic.
-  Assert tool calls in the evaluation; consider forcing tool choice for refund
-  questions if Gemini is unreliable.
-- Answer language: the project decision is **English only**. Verify the prompt
-  does not silently mirror a Polish question.
-- Out-of-scope questions (capital of Australia, Netflix password) must be
-  refused and point to `help@citywheels.example` / `+48 000 000 000`.
-- Bad weather, damage and theft are staff decisions — the agent must hand off,
-  not decide.
-- Unknown booking number: say "not found", never invent details.
+- Deterministyczne scoringowanie keywordów po nagłówkach Markdown; bez
+  embeddingów i bez sieci.
+- Ryzyko: parafrazy („how late are you open”, „cost of an electric bike”)
+  mogą nie trafić w właściwy fragment. Testować na wszystkich przykładowych
+  pytaniach z README.
+- Ograniczyć rozmiar fragmentów zwracanych modelowi; `top_k = 3` powinno
+  wystarczyć.
+- Zwracać `source` i `heading`, żeby agent mógł wskazać, skąd wzięła się
+  odpowiedź.
 
-## 6. Operations
+## 5. Zachowanie modelu do sprawdzenia
 
-- Verify `gemini-2.5-flash` is available with the actual API key; keep a
-  fallback model in mind.
-- Free tier has rate limits: retry with backoff, and keep the eval run small.
-- CI runs only fake-model tests (no key). The evaluation is run manually.
-- Windows `core.autocrlf=true` produces LF/CRLF warnings; consider adding
-  `.gitattributes` with `* text=auto eol=lf`.
-- Decide whether this `myNote.md` stays in the repository before submission.
+- Model musi wywołać `calculate_refund`, a nie liczyć w głowie. W ewaluacji
+  sprawdzać wywołane narzędzia; rozważyć wymuszenie wyboru narzędzia dla
+  pytań o zwrot, jeśli Gemini będzie zawodny.
+- Język odpowiedzi: decyzja projektowa to **tylko angielski**. Sprawdzić, czy
+  prompt nie zaczyna lustrzanie odpowiadać po polsku na polskie pytanie.
+- Pytania poza zakresem (stolica Australii, hasło do Netflixa) muszą zostać
+  odrzucone i wskazać `help@citywheels.example` / `+48 000 000 000`.
+- Zła pogoda, szkoda i kradzież to decyzje staffu — agent ma przekazać
+  sprawę, a nie decydować.
+- Nieznany numer rezerwacji: powiedzieć „not found”, nigdy nie wymyślać
+  szczegółów.
 
-## 7. Evaluation design
+## 6. Operacje
 
-- At least 10 questions, at least 2 refunds, at least 2 refusals, plus an
-  unknown booking number.
-- Assertions: expected tool subset, regex on amounts (accept `340.00`),
-  refusal detected via the contact details, no invented numbers.
-- Report failures honestly in `eval/results.md`, with a one-line reason each.
-- Keep the questions deterministic; `temperature = 0`.
+- Sprawdzić, czy `gemini-2.5-flash` jest dostępny z prawdziwym kluczem API;
+  mieć w odwodzie model zapasowy.
+- Darmowy tier ma limity: retry z backoffem i mały zestaw pytań w ewaluacji.
+- CI uruchamia tylko testy z fake modelem (bez klucza). Ewaluacja jest
+  uruchamiana ręcznie.
+- Windows `core.autocrlf=true` produkuje ostrzeżenia LF/CRLF; rozważyć
+  `.gitattributes` z `* text=auto eol=lf`.
+- Zdecydować, czy `myNote.md` zostaje w repozytorium przed wysłaniem.
+
+## 7. Projekt ewaluacji
+
+- Co najmniej 10 pytań, co najmniej 2 zwroty, co najmniej 2 odmowy, plus
+  nieznany numer rezerwacji.
+- Asercje: oczekiwany podzbiór narzędzi, regex na kwoty (akceptować
+  `340.00`), odmowa wykrywana po danych kontaktowych, brak wymyślonych liczb.
+- Uczciwie raportować porażki w `eval/results.md`, z jednym zdaniem
+  uzasadnienia dla każdej.
+- Pytania deterministyczne; `temperature = 0`.

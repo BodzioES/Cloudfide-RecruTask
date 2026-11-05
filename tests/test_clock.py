@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+import pytest
 
 from citywheels.clock import (
     delta_until,
@@ -11,6 +14,8 @@ from citywheels.clock import (
     whole_hours,
 )
 from citywheels.config import REFERENCE_NOW
+
+WARSAW = ZoneInfo("Europe/Warsaw")
 
 
 def test_reference_now_is_the_assignment_moment():
@@ -32,3 +37,16 @@ def test_describe_delta_is_human_readable():
     assert describe_delta(timedelta(hours=33)) == "33 hours before the start"
     assert describe_delta(timedelta(hours=1)) == "1 hour before the start"
     assert describe_delta(timedelta(hours=-2)) == "the start is in the past"
+
+
+def test_delta_until_is_absolute_across_dst():
+    # Same ZoneInfo on both sides: a naive subtraction would say 47 hours,
+    # because the clocks go back on 25 October 2026.
+    now = datetime(2026, 10, 23, 13, 0, tzinfo=WARSAW)
+    start = datetime(2026, 10, 25, 12, 0, tzinfo=WARSAW)
+    assert delta_until(start, now) == timedelta(hours=48)
+
+
+def test_delta_until_rejects_naive_datetimes():
+    with pytest.raises(ValueError):
+        delta_until(datetime(2026, 6, 10, 12, 0), reference_now())

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .config import REFERENCE_NOW, parse_now
 
@@ -16,9 +16,17 @@ def reference_now() -> datetime:
 
 
 def delta_until(start: datetime, now: datetime) -> timedelta:
-    """How much time is left until ``start``."""
+    """How much time is left until ``start``, as absolute time.
 
-    return start - now
+    Both values are converted to UTC first. Subtracting two aware datetimes
+    that share the same ``ZoneInfo`` object would otherwise ignore the DST
+    offset change and produce wall-clock arithmetic instead of real elapsed
+    time.
+    """
+
+    if start.tzinfo is None or now.tzinfo is None:
+        raise ValueError("both datetimes must be timezone-aware")
+    return start.astimezone(timezone.utc) - now.astimezone(timezone.utc)
 
 
 def whole_hours(delta: timedelta) -> int:

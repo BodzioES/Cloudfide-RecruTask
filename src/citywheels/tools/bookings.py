@@ -5,10 +5,31 @@ from __future__ import annotations
 from datetime import datetime
 
 from ..bookings import BookingStore, normalize_booking_id
+from ..clock import delta_until
 
 NOT_FOUND_HINT = (
     "Check the booking number with the customer. Do not guess booking details."
 )
+
+
+def not_found_result(booking_id: str | None) -> dict[str, object]:
+    """Shared not-found payload, used by every tool that takes a booking id."""
+
+    if booking_id is None:
+        return {
+            "found": False,
+            "booking_id": None,
+            "message": "No booking number was provided.",
+            "hint": "Ask the customer for their booking number, for example CW-1001.",
+        }
+
+    normalized = normalize_booking_id(booking_id)
+    return {
+        "found": False,
+        "booking_id": normalized,
+        "message": f"Booking {normalized} was not found.",
+        "hint": NOT_FOUND_HINT,
+    }
 
 
 def get_booking(
@@ -25,23 +46,13 @@ def get_booking(
 
     requested = (booking_id or "").strip()
     if not requested:
-        return {
-            "found": False,
-            "booking_id": None,
-            "message": "No booking number was provided.",
-            "hint": "Ask the customer for their booking number, for example CW-1001.",
-        }
+        return not_found_result(None)
 
     booking = store.get(requested)
     if booking is None:
-        return {
-            "found": False,
-            "booking_id": normalize_booking_id(requested),
-            "message": f"Booking {normalize_booking_id(requested)} was not found.",
-            "hint": NOT_FOUND_HINT,
-        }
+        return not_found_result(requested)
 
-    hours_until_start = (booking.start - now).total_seconds() / 3600
+    hours_until_start = delta_until(booking.start, now).total_seconds() / 3600
     return {
         "found": True,
         **booking.to_dict(),
