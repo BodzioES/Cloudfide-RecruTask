@@ -210,3 +210,18 @@ Otwarte kwestie:
 - Po tej poprawce czysty venv przechodzi 200 testów, bez
   `RequestsDependencyWarning` (potwierdza, że to artefakt lokalnego środowiska).
 
+## 13. Dokumentacja (etap 9)
+
+- `README.md` opisuje projekt, quickstart, użycie, testy, ewaluację, układ
+  katalogów i konfigurację. Przykładowy transcript pochodzi z prawdziwych
+  odpowiedzi modelu.
+- `SOLUTION.md` zawiera architekturę, wybór modelu, decyzje projektowe, wyniki
+  ewaluacji, konkretne błędy asystenta AI i sposoby ich wykrycia, znane
+  ograniczenia oraz `RequestsDependencyWarning`.
+- Link do sekcji ostrzeżenia w `README.md` używa kotwicy
+  `#9-known-local-environment-warning`.
+- Świadomie nie dodaję filtra `warnings.filterwarnings`: ukrywałby też
+  prawdziwe ostrzeżenia.
+- Wyniki w dokumentacji są zgodne z `eval/results.md`: 16/16 na
+  `gemini-3.5-flash-lite`.
+
