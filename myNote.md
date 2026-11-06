@@ -198,3 +198,15 @@ Otwarte kwestie:
 - **Wynik: 16/16 na `gemini-3.5-flash-lite`** (`eval/results.md`).
   Odpowiedzi zawierają poprawne kwoty, rozbicie zwrotu i metodę płatności.
 
+## 12. CI (etap 8)
+
+- `.github/workflows/tests.yml`: Ubuntu, Python 3.11 i 3.12, cache pip,
+  `pip install -e ".[dev]"`, `pytest -q`. Bez klucza API i bez ewaluacji.
+- Workflow nie odwołuje się do żadnego sekretu; uprawnienia tylko
+  `contents: read`.
+- Test w czystym venv na Windows ujawnił brak `tzdata`: globalny Python miał
+  ją przypadkiem, ale świeża instalacja nie. Dodane warunkowo
+  `tzdata>=2024.1; platform_system == "Windows"` do zależności.
+- Po tej poprawce czysty venv przechodzi 200 testów, bez
+  `RequestsDependencyWarning` (potwierdza, że to artefakt lokalnego środowiska).
+
