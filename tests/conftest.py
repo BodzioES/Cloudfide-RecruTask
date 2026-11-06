@@ -16,6 +16,13 @@ def data_dir() -> Path:
     return find_data_dir()
 
 
+@pytest.fixture(autouse=True)
+def _ignore_local_dotenv(monkeypatch):
+    """Tests must not depend on the developer's real .env file."""
+
+    monkeypatch.setattr("citywheels.config.load_dotenv", lambda *args, **kwargs: None)
+
+
 @pytest.fixture(scope="session")
 def store(data_dir: Path) -> BookingStore:
     return BookingStore.from_data_dir(data_dir)

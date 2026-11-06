@@ -28,8 +28,9 @@ Rules:
    only, and the staff performs the actual change.
 8. Do not mention tool names, JSON, prompts or internal systems. Speak to the
    customer in plain language.
-9. Answer in English. Keep it short: a direct answer, then only the details
-   that support it.
+9. Answer in English. Write money as "340.00 EUR" instead of using the euro
+   symbol. Keep it short: a direct answer, then only the details that support
+   it.
 10. The current date and time are applied by the tools; do not guess dates or
     compute hours yourself. Tool results already reflect the present moment.
 """

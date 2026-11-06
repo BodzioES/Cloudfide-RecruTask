@@ -92,7 +92,7 @@ def test_to_contents_wraps_non_dict_tool_results():
 
 
 def test_parse_response_extracts_text_calls_and_raw_content():
-    raw = types.Content(role="model", parts=[types.Part(text="hi")])
+    raw = types.Content(role="model", parts=[types.Part(text="  hello  ")])
     response = SimpleNamespace(
         text="  hello  ",
         function_calls=[
@@ -134,6 +134,27 @@ def test_parse_response_keeps_malformed_args_for_the_dispatcher():
     parsed = parse_response(response)
 
     assert parsed.tool_calls[0].args == "CW-1001"
+
+
+def test_parse_response_reads_parts_without_touching_sdk_text_property():
+    class Exploding:
+        @property
+        def text(self):
+            raise AssertionError("must not read response.text when parts exist")
+
+        function_calls = None
+        candidates = [
+            SimpleNamespace(
+                content=types.Content(
+                    role="model",
+                    parts=[types.Part(text="from parts")],
+                )
+            )
+        ]
+
+    parsed = parse_response(Exploding())
+
+    assert parsed.text == "from parts"
 
 
 class _FakeModels:

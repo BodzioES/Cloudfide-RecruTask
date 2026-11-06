@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 # The assignment fixes "now" so answers stay reproducible.
 REFERENCE_NOW = "2026-06-10T09:00:00+02:00"
-DEFAULT_MODEL = "gemini-2.5-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 TIMEZONE = ZoneInfo("Europe/Warsaw")
 
 DATA_DIR_ENV = "CITYWHEELS_DATA_DIR"

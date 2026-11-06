@@ -148,3 +148,28 @@ Otwarte kwestie:
   rezerwacji — tylko informuje.
 - Przed ewaluacją sprawdzić z prawdziwym kluczem, czy model nie pomija
   `get_booking` przed `calculate_refund` i czy nie próbuje liczyć sam.
+
+## 9. CLI
+
+- Kody wyjścia: `0` sukces, `1` błąd działania (model/narzędzia/limit tur),
+  `2` błąd użycia lub konfiguracji (brak klucza, złe dane, puste pytanie).
+- Prompt REPL idzie na `stderr`, żeby `stdout` został czysty dla odpowiedzi.
+- `--json` w REPL wypisuje jeden obiekt JSON na linię; dla pojedynczego
+  pytania ładnie sformatowany JSON.
+- Bez `--verbose` logi `citywheels` są wyciszone; użytkownik widzi tylko
+  komunikat z `AgentResult`, bez tracebacku.
+- Testy CLI wstrzykują `client_factory`, więc nie potrzebują klucza ani sieci.
+- Prawdziwy smoke test z Gemini do zrobienia po ustawieniu `.env`.
+
+## 10. Model i konsola (ustalone przy smoke teście)
+
+- `gemini-2.5-flash` zwraca `404` dla nowych użytkowników (listopad 2026);
+  `gemini-3.8-flash` i `gemini-3.7-flash` były przeciążone (`503`/`504`).
+  Działa `gemini-3.6-flash` — ustawiony jako domyślny.
+- `response.text` wypisuje ostrzeżenie, gdy odpowiedź zawiera function call.
+  Dlatego `parse_response` czyta tekst bezpośrednio z `candidates[0].content.parts`.
+- Konsola Windows nie jest UTF-8: CLI zamienia `€` na `EUR`, a myślniki na `-`.
+  `--json` używa `ensure_ascii`, więc dane po sparsowaniu są dokładne.
+- Testy nie mogą czytać lokalnego `.env`; autouse fixture wyłącza `load_dotenv`.
+- Smoke test (3.6): godziny otwarcia, zwrot CW-1002 = 340.00 EUR, odmowa
+  pytań spoza zakresu i nieznany booking CW-9999 działają.

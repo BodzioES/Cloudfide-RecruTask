@@ -169,14 +169,6 @@ def _response_payload(result: object) -> dict[str, object]:
 def parse_response(response: object) -> LLMResponse:
     """Turn an SDK response into the neutral form used by the loop."""
 
-    text: str | None = None
-    try:
-        candidate_text = response.text  # type: ignore[attr-defined]
-    except Exception:  # noqa: BLE001 - the SDK raises when there is no text part
-        candidate_text = None
-    if isinstance(candidate_text, str) and candidate_text.strip():
-        text = candidate_text.strip()
-
     calls: list[ToolCall] = []
     for call in getattr(response, "function_calls", None) or []:
         name = getattr(call, "name", None)
@@ -190,7 +182,31 @@ def parse_response(response: object) -> LLMResponse:
     if candidates:
         raw = getattr(candidates[0], "content", None)
 
+    # Prefer the raw parts: ``response.text`` prints a warning when the reply
+    # also contains function calls, and we do not want that noise in the CLI.
+    text = _extract_text(raw)
+    if raw is None or not getattr(raw, "parts", None):
+        try:
+            candidate_text = response.text  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001 - the SDK raises when there is no text part
+            candidate_text = None
+        if isinstance(candidate_text, str) and candidate_text.strip():
+            text = candidate_text.strip()
+
     return LLMResponse(text=text, tool_calls=tuple(calls), raw=raw)
+
+
+def _extract_text(content: object | None) -> str | None:
+    pieces: list[str] = []
+    for part in getattr(content, "parts", None) or []:
+        if getattr(part, "thought", False):
+            continue
+        value = getattr(part, "text", None)
+        if isinstance(value, str) and value:
+            pieces.append(value)
+    joined = "\n".join(pieces).strip()
+    return joined or None
+
 
 
 def _is_retryable(error: Exception) -> bool:
