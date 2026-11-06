@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from .llm import LLMClient
+from .llm import LLMClient, QuotaExhausted
 from .prompts import SYSTEM_PROMPT
 from .tools import Toolbox
 
@@ -81,12 +81,17 @@ def run_agent(
         try:
             response = client.complete(messages, schemas, system_instruction)
         except Exception as error:  # noqa: BLE001 - the loop must stay alive
-            logger.exception("Model call failed on iteration %s", iteration)
+            if isinstance(error, QuotaExhausted):
+                logger.error("Model quota is exhausted; stopping this question")
+                prefix = "quota_error"
+            else:
+                logger.exception("Model call failed on iteration %s", iteration)
+                prefix = "model_error"
             return AgentResult(
                 answer=MODEL_ERROR_ANSWER,
                 tool_calls=tuple(records),
                 iterations=iteration,
-                error=f"model_error: {type(error).__name__}: {error}",
+                error=f"{prefix}: {type(error).__name__}: {error}",
             )
 
         if response.tool_calls:

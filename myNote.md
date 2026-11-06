@@ -173,3 +173,28 @@ Otwarte kwestie:
 - Testy nie mogą czytać lokalnego `.env`; autouse fixture wyłącza `load_dotenv`.
 - Smoke test (3.6): godziny otwarcia, zwrot CW-1002 = 340.00 EUR, odmowa
   pytań spoza zakresu i nieznany booking CW-9999 działają.
+
+## 11. Ewaluacja (etap 7)
+
+- `eval/questions.json` ma 16 pytań: 7 o polityki, 6 o zwroty, 2 odmowy,
+  1 nieznany booking. Każde pytanie ma oczekiwane narzędzia i regexy.
+- Harness sprawdza lokalnie: narzędzia, wzorce wymagane/zabronione, dane
+  kontaktowe przy odmowie. Wszystko deterministyczne, `temperature = 0`.
+- `eval/run_eval.py` obsługuje `--limit`, `--only`, `--model`, `--now`,
+  `--delay`, `--output`. Kod wyjścia `3` = część pytań zablokowana limitem.
+- **Limit darmowego tieru:** `gemini-3.6-flash` ma 20 żądań/dzień, a pełny
+  zestaw zużywa ~30 (każde pytanie to 2 tury). Dlatego domyślnym modelem
+  został `gemini-3.5-flash-lite` (15 żądań/min, wyższy limit dzienny).
+  `gemini-3.6-flash` i `gemini-3.5-flash` działały dobrze pojedynczo, ale
+  wyczerpały dzienny limit.
+- Gdy Gemini podaje `retryDelay` większy niż 300 s, klient rzuca
+  `QuotaExhausted` zamiast ponawiać 5 razy. Ewaluacja oznacza wtedy resztę
+  pytań jako `BLOCKED` — nie udaje, że to błędy modelu.
+- Gdy `retryDelay` jest mały (limit na minutę), klient czeka dokładnie tyle,
+  ile mówi serwer, a nie tylko własny backoff.
+- Poprawka promptu: pytania o usługi CityWheels są w zakresie, nawet gdy
+  odpowiedź brzmi „nie” (np. „czy sprzedajecie rowery?”). Wcześniej lite
+  model odmawiał bez szukania w politykach.
+- **Wynik: 16/16 na `gemini-3.5-flash-lite`** (`eval/results.md`).
+  Odpowiedzi zawierają poprawne kwoty, rozbicie zwrotu i metodę płatności.
+

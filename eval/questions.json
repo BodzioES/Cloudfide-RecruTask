@@ -1,0 +1,152 @@
+[
+    {
+      "id": "hours-saturday",
+      "question": "What time do you open on Saturday?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["08:00", "20:00"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "price-ebike-day",
+      "question": "How much does an electric bike cost for a full day?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["(?:40(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*40(?:[.,]00)?)"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "age-14-ebike",
+      "question": "Can my 14-year-old rent an electric bike?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["16", "(?i)\\b(no|cannot|not|minimum|at least)\\b"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "child-seat-price",
+      "question": "How much does a child seat cost?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["(?:3(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*3(?:[.,]00)?)", "(?i)day"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "deposit-city",
+      "question": "What deposit do I pay for a city bike?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["(?:50(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*50(?:[.,]00)?)"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "bike-abroad",
+      "question": "Can I take a rented bike to another country?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["(?i)(not allowed|not permitted|cannot|not possible)"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "sell-bikes",
+      "question": "Do you sell bikes as well?",
+      "expected_tools": ["search_policies"],
+      "must_match": ["(?i)(only rent|rent only|do not sell|don't sell|not sell|no\\b)"],
+      "must_not_match": [],
+      "expect_refusal": false
+    },
+    {
+      "id": "refund-1002",
+      "question": "I want to cancel booking CW-1002. How much will I get back?",
+      "expected_tools": ["calculate_refund"],
+      "must_match": [
+        "(?:340(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*340(?:[.,]00)?)",
+        "50\\s*(?:%|percent)",
+        "(?i)\\bcard\\b"
+      ],
+      "must_not_match": ["(?:380(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*380(?:[.,]00)?)"],
+      "expect_refusal": false
+    },
+    {
+      "id": "refund-1001",
+      "question": "Please cancel booking CW-1001. What refund should I expect?",
+      "expected_tools": ["calculate_refund"],
+      "must_match": [
+        "(?:90(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*90(?:[.,]00)?)",
+        "100\\s*(?:%|percent)"
+      ],
+      "must_not_match": ["(?:92(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*92(?:[.,]00)?)"],
+      "expect_refusal": false
+    },
+    {
+      "id": "refund-1003",
+      "question": "I need to cancel booking CW-1003 today. How much comes back?",
+      "expected_tools": ["calculate_refund"],
+      "must_match": [
+        "(?:50(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*50(?:[.,]00)?)",
+        "0\\s*(?:%|percent)",
+        "(?i)deposit"
+      ],
+      "must_not_match": ["(?:62(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*62(?:[.,]00)?)"],
+      "expect_refusal": false
+    },
+    {
+      "id": "refund-1007",
+      "question": "Booking CW-1007 starts in exactly 48 hours. If I cancel now, what is the refund?",
+      "expected_tools": ["calculate_refund"],
+      "must_match": [
+        "(?:186(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*186(?:[.,]00)?)",
+        "100\\s*(?:%|percent)"
+      ],
+      "must_not_match": ["(?:93(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*93(?:[.,]00)?)"],
+      "expect_refusal": false
+    },
+    {
+      "id": "refund-1010",
+      "question": "Cancel CW-1010 exactly 24 hours before the start. How much will I get back?",
+      "expected_tools": ["calculate_refund"],
+      "must_match": [
+        "(?:170(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*170(?:[.,]00)?)",
+        "50\\s*(?:%|percent)"
+      ],
+      "must_not_match": ["(?:190(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*190(?:[.,]00)?)"],
+      "expect_refusal": false
+    },
+    {
+      "id": "refund-1004-voucher",
+      "question": "I paid for booking CW-1004 with a voucher. If I cancel it, how much do I get and how?",
+      "expected_tools": ["calculate_refund"],
+      "must_match": [
+        "(?:73(?:[.,]00)?\\s*(?:EUR|€)|(?:EUR|€)\\s*73(?:[.,]00)?)",
+        "(?i)voucher"
+      ],
+      "must_not_match": [
+        "(?i)(?:refund|returned|paid)\\s+(?:to|on)\\s+(?:your|the)\\s+(?:original\\s+)?card"
+      ],
+      "expect_refusal": false
+    },
+    {
+      "id": "refusal-australia",
+      "question": "What is the capital of Australia?",
+      "expected_tools": [],
+      "must_match": [],
+      "must_not_match": ["(?i)\\bCanberra\\b"],
+      "expect_refusal": true
+    },
+    {
+      "id": "refusal-netflix",
+      "question": "How do I reset my Netflix password?",
+      "expected_tools": [],
+      "must_match": [],
+      "must_not_match": ["(?i)netflix\\.com|reset\\s+(?:your\\s+)?password"],
+      "expect_refusal": true
+    },
+    {
+      "id": "unknown-booking",
+      "question": "Can you check booking CW-9999 for me?",
+      "expected_tools": ["get_booking"],
+      "must_match": ["(?i)(not found|no booking|could not find|does not exist|doesn't exist)"],
+      "must_not_match": ["(?i)\\d+[.,]\\d{2}\\s*(?:EUR|€)"],
+      "expect_refusal": false
+    }
+]

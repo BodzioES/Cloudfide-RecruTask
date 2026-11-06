@@ -11,7 +11,7 @@ from citywheels.agent import (
     MODEL_ERROR_ANSWER,
     run_agent,
 )
-from citywheels.llm import FakeLLM, LLMResponse, ToolCall
+from citywheels.llm import FakeLLM, LLMResponse, QuotaExhausted, ToolCall
 from citywheels.policies import PolicyIndex
 from citywheels.prompts import SYSTEM_PROMPT
 from citywheels.tools import Toolbox
@@ -192,6 +192,16 @@ def test_model_failure_is_returned_gracefully(toolbox):
     assert result.error.startswith("model_error: RuntimeError")
     assert result.answer == MODEL_ERROR_ANSWER
     assert result.iterations == 1
+
+
+def test_quota_exhaustion_gets_its_own_error_prefix(toolbox):
+    client = FakeLLM([QuotaExhausted("daily quota", retry_delay_s=3600.0)])
+
+    result = run_agent("Hi", client=client, tools=toolbox)
+
+    assert result.error is not None
+    assert result.error.startswith("quota_error: QuotaExhausted")
+    assert result.answer == MODEL_ERROR_ANSWER
 
 
 def test_tool_failure_is_contained_and_reported_to_the_model(toolbox, monkeypatch):

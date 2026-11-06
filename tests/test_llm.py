@@ -10,8 +10,10 @@ from google.genai import errors, types
 from citywheels.llm import (
     GeminiClient,
     LLMResponse,
+    QuotaExhausted,
     ToolCall,
     parse_response,
+    retry_delay_seconds,
     to_contents,
 )
 
@@ -233,6 +235,58 @@ def test_client_gives_up_after_max_attempts():
 
     assert len(sdk.models.requests) == 3
     assert slept == [1.0, 2.0]
+
+
+def _quota_error(retry_delay: str) -> errors.APIError:
+    return errors.APIError(
+        429,
+        {
+            "error": {
+                "code": 429,
+                "message": "quota exceeded",
+                "status": "RESOURCE_EXHAUSTED",
+                "details": [
+                    {
+                        "@type": "type.googleapis.com/google.rpc.RetryInfo",
+                        "retryDelay": retry_delay,
+                    }
+                ],
+            }
+        },
+    )
+
+
+def test_retry_delay_seconds_reads_the_provider_hint():
+    assert retry_delay_seconds(_quota_error("42s")) == 42.0
+    assert retry_delay_seconds(errors.APIError(429, {})) is None
+
+
+def test_daily_quota_is_not_retried_and_is_reported_as_quota_exhausted():
+    client, sdk, slept = _client(
+        [_quota_error("41998s")],
+        max_attempts=5,
+        base_delay=2.0,
+    )
+
+    with pytest.raises(QuotaExhausted) as caught:
+        client.complete([{"role": "user", "text": "hi"}], [])
+
+    assert caught.value.retry_delay_s == 41998.0
+    assert len(sdk.models.requests) == 1
+    assert slept == []
+
+
+def test_short_rate_limit_waits_for_the_provider_hint():
+    client, sdk, slept = _client(
+        [_quota_error("5s"), _ok_response("recovered")],
+        base_delay=0.5,
+    )
+
+    result = client.complete([{"role": "user", "text": "hi"}], [])
+
+    assert result.text == "recovered"
+    assert len(sdk.models.requests) == 2
+    assert slept == [5.5]
 
 
 def test_client_sends_model_temperature_and_declarations():

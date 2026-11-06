@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, Protocol, Sequence
@@ -16,6 +17,25 @@ from typing import Callable, Iterable, Protocol, Sequence
 logger = logging.getLogger(__name__)
 
 RETRYABLE_CODES = frozenset({429, 500, 502, 503, 504})
+
+# Gemini attaches a ``retryDelay`` to quota errors. A daily limit reports hours,
+# which is far beyond a sensible backoff, so such errors are not retried.
+RETRY_DELAY_RE = re.compile(r"retryDelay['\"]?\s*:\s*['\"]?([0-9.]+)s")
+
+
+class QuotaExhausted(RuntimeError):
+    """The provider quota is gone for so long that retrying makes no sense."""
+
+    def __init__(self, message: str, retry_delay_s: float) -> None:
+        super().__init__(message)
+        self.retry_delay_s = retry_delay_s
+
+
+def retry_delay_seconds(error: Exception) -> float | None:
+    """Read Gemini's suggested retry delay from an error, if it is present."""
+
+    match = RETRY_DELAY_RE.search(str(error))
+    return float(match.group(1)) if match else None
 
 
 @dataclass(frozen=True)
@@ -230,6 +250,7 @@ class GeminiClient:
         timeout_ms: int = 60_000,
         max_attempts: int = 3,
         base_delay: float = 1.0,
+        max_retry_delay_s: float = 300.0,
         sleep: Callable[[float], None] = time.sleep,
         client: object | None = None,
     ) -> None:
@@ -241,6 +262,7 @@ class GeminiClient:
         self._model = model
         self._max_attempts = max_attempts
         self._base_delay = base_delay
+        self._max_retry_delay_s = max_retry_delay_s
         self._sleep = sleep
 
         if client is None:
@@ -288,7 +310,26 @@ class GeminiClient:
             except Exception as error:  # noqa: BLE001 - classified below
                 if attempt >= self._max_attempts or not _is_retryable(error):
                     raise
+                provider_delay = retry_delay_seconds(error)
+                if (
+                    provider_delay is not None
+                    and provider_delay > self._max_retry_delay_s
+                ):
+                    logger.error(
+                        "Gemini quota is exhausted for about %.1f hours; "
+                        "not retrying",
+                        provider_delay / 3600,
+                    )
+                    raise QuotaExhausted(
+                        f"quota exhausted; the provider asks to retry in "
+                        f"{provider_delay:.0f}s",
+                        retry_delay_s=provider_delay,
+                    ) from error
                 delay = self._base_delay * (2 ** (attempt - 1))
+                if provider_delay is not None:
+                    # The server knows when the window resets; wait at least
+                    # that long instead of guessing with exponential backoff.
+                    delay = max(delay, provider_delay + 0.5)
                 logger.warning(
                     "Gemini call failed (attempt %s/%s): %s; retrying in %.1fs",
                     attempt,
