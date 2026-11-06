@@ -136,3 +136,15 @@ Otwarte kwestie:
 - Uczciwie raportować porażki w `eval/results.md`, z jednym zdaniem
   uzasadnienia dla każdej.
 - Pytania deterministyczne; `temperature = 0`.
+
+## 8. Warstwa modelu
+
+- Gemini 2.5 wymaga odsyłania `thought_signature` razem z function call.
+  Dlatego `LLMResponse.raw` trzyma oryginalny `Content` z SDK, a agent odsyła
+  go bez przebudowy. Bez tego prawdziwe wywołanie może dostać 400.
+- Retry tylko dla 429/5xx i błędów sieci; 400 nie jest ponawiane.
+- `FakeLLM` siedzi w `llm.py`, nie w testach, żeby ewaluacja też mogła go użyć.
+- Prompt zabrania liczenia w głowie i mówi wprost, że agent nie anuluje
+  rezerwacji — tylko informuje.
+- Przed ewaluacją sprawdzić z prawdziwym kluczem, czy model nie pomija
+  `get_booking` przed `calculate_refund` i czy nie próbuje liczyć sam.
