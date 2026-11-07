@@ -348,13 +348,15 @@ models served by LM Studio:
 | `gemma-4-26b-a4b-qat` | 10/16 (62.5%) | 100% | 9.34s | 31.17s | 38.0 |
 
 The gap is narrower than the pass rate suggests. On the local models every
-refund answer contained the correct amount and called `calculate_refund`; the
+refund answer contained the correct amount and called `calculate_refund`; those
 questions failed only because the answer did not spell out the percentage
-(`50%`, `100%`, `0%`) that the rubric requires. The one genuine model error was
-Gemini on `refund-1010`: it called `calculate_refund` with `delay_days: 1`
-instead of `0`, which moved the cancellation to the start time and returned
-`150.00 EUR` instead of `170.00 EUR`. The tool output is in the raw JSON, so the
-mistake is traceable.
+(`50%`, `100%`, `0%`) that the rubric requires. The 26B model also failed
+`age-14-ebike` even though it gave the correct minimum age of 16; it simply did
+not use one of the negative phrases the rubric expects. The baseline's only
+failure was Gemini on `refund-1010`: it called `calculate_refund` with
+`delay_days: 1` instead of `0`, which moved the cancellation to the start time
+and returned `150.00 EUR` instead of `170.00 EUR`. The tool output is in the raw
+JSON, so the mistake is traceable.
 
 These are single runs, not a ranking. The comparison was recorded on 7 November
 2026, before the `delay_days` clarification described above; that is why the
