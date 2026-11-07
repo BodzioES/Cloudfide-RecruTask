@@ -254,3 +254,112 @@ Otwarte kwestie:
 - **Uwaga:** `hours-saturday` czasem gubi godzinę zamknięcia — to znana
   flakiness modelu, nie błąd kodu; przy powtórce przechodzi.
 
+## 15. Modele do benchmarku (research 2026-11-07)
+
+Cel: dwa modele lokalne (16 GB VRAM i 8-10 GB VRAM) oraz jeden darmowy model
+API porównywalny z `gemini-3.5-flash-lite`. Wszystkie muszą wspierać tool
+calling, bo agent bez tego nie działa.
+
+### Lokalny #1 — do 16 GB VRAM
+
+**`openai/gpt-oss-20b`** (LM Studio)
+
+- OpenAI open-weight, Apache 2.0; 21B parametrów, 3.6B aktywnych (MoE).
+- Natywna kwantyzacja MXFP4; LM Studio podaje minimum 12 GB pamięci, a OpenAI
+  opisuje model jako mieszczący się w 16 GB VRAM. Realnie ~12-13 GB + kontekst.
+- Tool use i reasoning są wbudowane; kontekst do 131k.
+- Zaleta: ten sam model można uruchomić lokalnie i przez darmowe API (Groq),
+  co daje ciekawe porównanie „te same wagi, inny serving”.
+- Link: https://lmstudio.ai/models/openai/gpt-oss-20b
+- W LM Studio ustaw Reasoning Effort na `low` albo `medium`; `high` tylko
+  wydłuża odpowiedzi i benchmark.
+
+### Lokalny #2 — 8-10 GB VRAM
+
+**`google/gemma-4-12b`** (LM Studio)
+
+- 12B, encoder-free multimodal, trenowany do tool use; kontekst do 256k.
+- LM Studio podaje minimum 7 GB pamięci; w Q4 realnie ~7-8 GB, więc mieści się
+  na 8 GB VRAM (na 10 GB jest komfortowo).
+- Ma przełącznik „Enable Thinking” (domyślnie włączony). Do benchmarku lepiej
+  go wyłączyć — myślenie zwiększa latencję i utrudnia porównanie.
+- Link: https://lmstudio.ai/models/google/gemma-4-12b
+- Alternatywa, jeśli chcesz rodzinę Qwen: `qwen3:14b-q4_K_M` (~10-11 GB,
+  sprawdzony tool calling, ale tighter na 8 GB).
+
+### Darmowy model API — odpowiednik Gemini Flash Lite
+
+**`openai/gpt-oss-20b` na Groq (free plan)**
+
+- To ten sam model co lokalny #1, więc wydajnościowo jest najbliżej
+  `gemini-3.5-flash-lite` z całej trójki.
+- Endpoint OpenAI-compatible: `https://api.groq.com/openai/v1`.
+- Free plan: 30 RPM, 1 000 RPD, 8 000 TPM, 200 000 TPD.
+- Tool calling: tak (Groq dokumentuje local tool calling na tym modelu).
+- Linki: https://console.groq.com/docs/models ,
+  https://console.groq.com/docs/rate-limits ,
+  https://console.groq.com/docs/openai
+- Mocniejsza opcja za darmo: **`openai/gpt-oss-120b`** (te same limity,
+  ~500 tok/s, jakościowo wyżej niż Flash Lite).
+- Inna opcja: **`qwen/qwen3.8-27b`** (30 RPM, 1 000 RPD, 8k TPM; 131k kontekstu).
+- OpenRouter free ma tylko ~50 requestów/dzień, więc nie nadaje się na pełny
+  benchmark 16 pytań × 3 przebiegi; co najwyżej na smoke test.
+
+### Wpisy do `eval/benchmark_models.local.json`
+
+```json
+{
+  "label": "lmstudio-gpt-oss-20b",
+  "provider": "openai-compatible",
+  "model": "openai/gpt-oss-20b",
+  "base_url": "http://localhost:1234/v1",
+  "api_key": "lm-studio",
+  "note": "OpenAI open-weight; MXFP4; ~12-13 GB VRAM; tool use."
+}
+```
+
+```json
+{
+  "label": "lmstudio-gemma-4-12b",
+  "provider": "openai-compatible",
+  "model": "google/gemma-4-12b",
+  "base_url": "http://localhost:1234/v1",
+  "api_key": "lm-studio",
+  "note": "Gemma 4 12B; ~7-8 GB VRAM; tool use; thinking off."
+}
+```
+
+```json
+{
+  "label": "groq-gpt-oss-20b",
+  "provider": "openai-compatible",
+  "model": "openai/gpt-oss-20b",
+  "base_url": "https://api.groq.com/openai/v1",
+  "api_key_env": "GROQ_API_KEY",
+  "note": "Free: 30 RPM / 1K RPD / 8K TPM / 200K TPD; tool use."
+}
+```
+
+Klucz Groq trzymaj w `.env` (plik jest ignorowany przez Git):
+
+```dotenv
+GROQ_API_KEY=...
+```
+
+### O czym pamiętać przy benchmarku
+
+- **Sprawdź dokładne id modelu:** `curl http://localhost:1234/v1/models`.
+  LM Studio może wystawić inną nazwę niż na stronie modelu.
+- **Groq 8k TPM to wąskie gardło:** jedno pytanie z pętlą narzędzi potrafi
+  zużyć 2-4k tokenów. Zacznij od `--runs 1 --delay 8`, dopiero potem 3 przebiegi.
+- **Nie porównuj 1 przebiegu z 3.** Jeśli limit zmusi do 1 przebiegu, zaznacz
+  to w raporcie.
+- **Wyłącz thinking** (Gemma 4) albo ustaw niski reasoning effort
+  (gpt-oss), inaczej latencja będzie zawyżona.
+- **OpenRouter free (~50 RPD)** nie wystarczy na pełny benchmark; użyj Groq.
+- **Nie wpisuj kluczy API do `benchmark_models.json`** — używaj
+  `api_key_env` i `.env`.
+- **Zweryfikuj tool calling przed pełnym runsem:** jedno pytanie
+  `--only hours-saturday,refund-1002 --runs 1`.
+- **VRAM i cold start zapisz ręcznie** — runner ich nie mierzy.
+
