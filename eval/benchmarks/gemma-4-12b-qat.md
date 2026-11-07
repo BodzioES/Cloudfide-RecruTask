@@ -3,7 +3,7 @@
 - **Provider:** `openai`
 - **Model:** `google/gemma-4-12b-qat`
 - **Base URL:** `http://localhost:1234/v1`
-- **Note:** Lokalny model Gemma 4 12B w LM Studio.
+- **Note:** Local Gemma 4 12B model served by LM Studio.
 - **Runs:** 1/1 completed
 - **Questions per run:** 16
 - **Pass rate:** 11/16 (68.8%)

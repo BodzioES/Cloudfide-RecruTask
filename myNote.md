@@ -256,27 +256,42 @@ Otwarte kwestie:
 
 ## 15. Benchmarki: wnioski z listopada 2026
 
-Przetestowano trzy podejścia (Gemini 3.5 Flash Lite, Gemma 12B, Gemma 26B).
+Przebieg: 1 raz na model, `--now 2026-06-10T09:00:00+02:00`, te same 16 pytań.
+Surowe odpowiedzi i wywołania narzędzi: `eval/benchmarks/*.json`.
 
 1. **Gemini 3.5 Flash Lite (Baseline API):**
-   - Wynik: **16/16**.
-   - Charakterystyka: Bezproblemowe wsparcie dla Function Calling, idealna stabilność logiczna.
-   - Uwagi: Darmowy tier ma restrykcyjne limity (15 zapytań/min), co wymaga opóźnień w benchmarku.
+   - Benchmark: **15/16**. Pełna ewaluacja (`eval/results.md`): **16/16**.
+   - Jedyny błąd w benchmarku: `refund-1010` — model wywołał
+     `calculate_refund` z `delay_days: 1` zamiast `0`, więc policzył zwrot na
+     moment startu (0%) i podał 150.00 EUR zamiast 170.00 EUR. To nie
+     halucynacja, tylko błędna interpretacja „exactly 24 hours before start”.
+   - Free tier ma limit ~15 zapytań/min.
 
-2. **Gemma 4 12B (Lokalny, LM Studio):**
-   - Wynik: **11/16**.
-   - Charakterystyka: Dobrze radzi sobie z wyszukiwaniem w politykach (`search_policies`), ale ma problemy z precyzyjnym wywoływaniem narzędzi finansowych (`calculate_refund`).
-   - Zależności: Wymaga stabilnego serwera lokalnego i poprawnego szablonu czatu. Wysoka latencja (średnio ~32s na pytanie).
+2. **Gemma 4 12B QAT (lokalny, LM Studio):**
+   - Wynik: **11/16**, tool accuracy 100%, średnio 32.47 s, 6.2 tok/s.
+   - Wszystkie 5 niepowodzeń to pytania refundowe: kwota była poprawna, ale
+     odpowiedź nie zawierała jawnego „%” wymaganego przez rubric.
+   - Wolna: ~32 s na pytanie.
 
-3. **Gemma 4 26B (Lokalny, LM Studio):**
-   - Wynik: **11/16**.
-   - Charakterystyka: Mimo większej liczby parametrów, wynik jest identyczny jak w 12B.
-   - Wniosek: Większy model nie rozwiązuje problemów z Function Callingiem w tym zadaniu. Mniejszy model (12B) jest bardziej opłacalny ze względu na niższą latencję i mniejsze zapotrzebowanie na VRAM.
+3. **Gemma 4 26B A4B QAT (lokalny, LM Studio, MoE):**
+   - Wynik: **10/16**, tool accuracy 100%, średnio 9.34 s, 38.0 tok/s.
+   - Failuje te same 5 refundów (brak „%”) plus `age-14-ebike`: odpowiedź
+     „from 16 years old” jest merytorycznie poprawna, ale regex wymaga słowa
+     `no`/`not`/`minimum`/`at least`.
+   - Jest ~3,5× szybsza od 12B; 12B wygrywa tylko mniejszym VRAM-em.
 
-### Kluczowe zależności i obserwacje:
-- **Function Calling:** Modele lokalne często nie rozumieją, że w zadaniach `refund-*` **muszą** użyć narzędzia zamiast zgadywać wynik. 
-- **Latency:** Modele lokalne są znacznie wolniejsze w "myśleniu" i wywoływaniu narzędzi niż Gemini.
-- **Konfiguracja:** LM Studio działa jako router (API OpenAI-compatible), co pozwala na płynne przełączanie modeli, o ile zachowane są te same nazwy endpointów w `benchmark_models.local.json`.
-- **Weryfikacja:** `refund-1004-voucher` (zadanie 13) jest "testem z potknięciem" dla modeli lokalnych, bo wymaga rozróżnienia metody zwrotu — Gemma 12B zaliczyła to zadanie, co sugeruje, że problemem nie jest brak inteligencji, a błędy w samej architekturze wywołań (JSON schema vs prompt).
+### Wnioski
+
+- **Tool calling:** 100% we wszystkich modelach. Lokalne modele wywołały
+  `calculate_refund` i użyły jego wyniku; nie zgadywały kwot.
+- **Rubric:** wymóg jawnego „%” zaniża wyniki lokalnych modeli. To nie błąd
+  modeli, ale trzeba to opisać, bo inaczej 11/16 i 10/16 wyglądają jak brak
+  umiejętności liczenia.
+- **Latencja:** 26B-A4B jest szybsza od 12B mimo większej liczby parametrów
+  (MoE, ~4B aktywnych). 12B ma przewagę tylko w VRAM.
+- **Wariancja:** to pojedyncze przebiegi; Gemini raz miał 16/16, raz 15/16.
+  Nie traktować tabeli jako rankingu.
+- **Odtwarzalność:** lokalne modele nie są już dostępne; w repo zostają
+  surowe JSON-y jako zapis przebiegu.
 
 

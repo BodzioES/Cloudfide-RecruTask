@@ -500,8 +500,6 @@ def render_summary(outcomes: Sequence[BenchmarkOutcome], *, generated_at: str) -
     lines += [
         "",
         "Raw answers and tool calls are in the per-model JSON files.",
-        "VRAM and cold-start time are hardware facts, not API facts: record them "
-        "manually next to the table if the benchmark is used for a report.",
         "",
     ]
     return "\n".join(lines).rstrip() + "\n"

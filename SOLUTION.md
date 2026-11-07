@@ -319,8 +319,33 @@ listed in `eval/benchmark_models.json`. It records pass rate, tool accuracy,
 mean and p95 latency, completion tokens per second, errors and quota-blocked
 questions, then writes `eval/benchmarks/summary.md` plus per-model Markdown and
 raw JSON. `BENCHMARKS.md` documents the procedure for two API models and two
-LM Studio models, including tool-calling requirements, LM Studio setup and the
-fact that VRAM/cold start must be recorded manually.
+LM Studio models, including tool-calling requirements and LM Studio setup.
+
+### Benchmark results
+
+The committed comparison (`eval/benchmarks/summary.md`, one run per model,
+`--now 2026-06-10T09:00:00+02:00`) covers the baseline and two local Gemma
+models served by LM Studio:
+
+| Model | Pass rate | Tool accuracy | Mean | p95 | Tokens/s |
+| --- | --- | --- | --- | --- | --- |
+| `gemini-3.5-flash-lite` | 15/16 (93.8%) | 100% | 7.44s | 41.68s | 14.4 |
+| `gemma-4-12b-qat` | 11/16 (68.8%) | 100% | 32.47s | 67.69s | 6.2 |
+| `gemma-4-26b-a4b-qat` | 10/16 (62.5%) | 100% | 9.34s | 31.17s | 38.0 |
+
+The gap is narrower than the pass rate suggests. On the local models every
+refund answer contained the correct amount and called `calculate_refund`; the
+questions failed only because the answer did not spell out the percentage
+(`50%`, `100%`, `0%`) that the rubric requires. The one genuine model error was
+Gemini on `refund-1010`: it called `calculate_refund` with `delay_days: 1`
+instead of `0`, which moved the cancellation to the start time and returned
+`150.00 EUR` instead of `170.00 EUR`. The tool output is in the raw JSON, so the
+mistake is traceable.
+
+These are single runs, not a ranking: the same baseline produced 16/16 in the
+full evaluation, so a one-question difference is noise. The local models are no
+longer available, but the raw answers and tool calls are committed in
+`eval/benchmarks/*.json`.
 
 ### Failures found and fixed
 
@@ -486,8 +511,8 @@ environment for this project.
 
 ## 11. Next steps
 
-1. Run the local benchmarks from `BENCHMARKS.md` and add the resulting comparison
-   table to the report.
+1. Add a merged-summary mode so separate model runs can be combined without
+   editing `summary.md` by hand.
 2. Coverage reporting in CI (`pytest-cov` is already a dev dependency).
 3. Structured logs and metrics for tool latency and refusals.
 4. Integration with a real booking system, behind explicit confirmation and

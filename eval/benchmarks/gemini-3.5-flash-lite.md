@@ -2,7 +2,7 @@
 
 - **Provider:** `gemini`
 - **Model:** `gemini-3.5-flash-lite`
-- **Note:** Bazowy model API (Google AI Studio).
+- **Note:** Baseline API model (Google AI Studio).
 - **Runs:** 1/1 completed
 - **Questions per run:** 16
 - **Pass rate:** 15/16 (93.8%)

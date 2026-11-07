@@ -27,13 +27,9 @@ The runner reports:
 | Errors | Model/tool/iteration errors inside executed questions. |
 | Blocked | Questions not executed because the provider quota was exhausted. |
 
-VRAM use and cold-start time are hardware facts, not API facts. The runner
-cannot read them reliably from every backend, so record them manually next to
-the table if you need them for a report.
-
 ## Suggested model set
 
-A practical set on a 16 GB GPU:
+A practical set:
 
 1. `gemini-3.5-flash-lite` - the committed baseline (free API).
 2. a second free API model through an OpenAI-compatible endpoint, for example
@@ -161,33 +157,14 @@ curl http://localhost:1234/v1/models
 
 Use that id as `model` in the benchmark config.
 
-## 5. Recording VRAM and cold start
-
-Run the benchmark while watching the GPU:
-
-```bash
-# NVIDIA
-nvidia-smi --query-gpu=memory.used,memory.total --format=csv -l 1
-```
-
-Record:
-
-- peak VRAM during a question,
-- time from starting the server/loading the model to the first answer,
-- quantization shown by LM Studio (Q4_K_M, Q5_K_M, ...),
-- context length.
-
-Put these in the final report next to `summary.md`; they are not in the
-automatically generated table.
-
-## 6. Reading the results honestly
+## 5. Reading the results honestly
 
 - **Pass rate alone is not enough.** A model can pass by guessing the right tool
   but produce a wrong amount; the answer-pattern checks catch that.
 - **Tool accuracy matters.** If it is much lower than pass rate, the model may
   be answering from memory instead of calling tools.
 - **Latency on the first question includes model loading.** Exclude the first
-  question or note the cold start separately.
+  question when comparing mean latency.
 - **Small sample.** 16 questions are useful for a smoke comparison, not for a
   scientific ranking. Three runs help, but do not over-interpret one failure.
 - **Quota blocking is not a model failure.** A blocked run means the provider
@@ -195,18 +172,22 @@ automatically generated table.
 - **Same conditions.** Do not change the prompt, the question set or `--now`
   between models and then compare the tables.
 
-## 7. Suggested report table
+## 6. Suggested report table
 
-After the run, copy the summary numbers into something like this and add the
-hardware facts:
+After the run, copy the summary numbers into something like this:
 
-| Model | Provider | Quantization | VRAM | Cold start | Runs | Pass rate | Tool accuracy | Mean | p95 | Tokens/s | Notes |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `gemini-3.5-flash-lite` | Gemini API | - | - | ~1 s | 3 | 100% | 100% | ... | ... | ... | baseline |
-| second API model | OpenAI-compatible | - | - | ... | 3 | ... | ... | ... | ... | ... | ... |
-| local 8B | LM Studio | Q4_K_M | ... | ... | 3 | ... | ... | ... | ... | ... | ... |
-| local 14B | LM Studio | Q4_K_M | ... | ... | 3 | ... | ... | ... | ... | ... | ... |
+| Model | Provider | Runs | Pass rate | Tool accuracy | Mean | p95 | Tokens/s | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `gemini-3.5-flash-lite` | Gemini API | 3 | 100% | 100% | ... | ... | ... | baseline |
+| second API model | OpenAI-compatible | 3 | ... | ... | ... | ... | ... | ... |
+| local 8B | LM Studio | 3 | ... | ... | ... | ... | ... | ... |
+| local 14B | LM Studio | 3 | ... | ... | ... | ... | ... | ... |
 
 The committed baseline is **16/16** on `gemini-3.5-flash-lite`
 (`eval/results.md`). Use it as the reference point, not as proof that a larger
 model must be better on this narrow task.
+
+The committed comparison in `eval/benchmarks/summary.md` covers the baseline
+and two local Gemma models. If you run models one at a time, do not edit the
+summary by hand: rerun all models in one invocation so the table always matches
+the per-model JSON files.

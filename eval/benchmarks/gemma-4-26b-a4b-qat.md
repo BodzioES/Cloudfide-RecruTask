@@ -3,7 +3,7 @@
 - **Provider:** `openai`
 - **Model:** `google/gemma-4-26b-a4b-qat`
 - **Base URL:** `http://localhost:1234/v1`
-- **Note:** Lokalny model Gemma 4 26B (A4B MoE) w LM Studio.
+- **Note:** Local Gemma 4 26B (A4B MoE) model served by LM Studio.
 - **Runs:** 1/1 completed
 - **Questions per run:** 16
 - **Pass rate:** 10/16 (62.5%)

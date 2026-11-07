@@ -202,7 +202,8 @@ python eval/benchmark.py --runs 1 --delay 0
 ```
 
 Output goes to `eval/benchmarks/`. A missing API key skips that model with a
-clear message instead of failing the whole run. See
+clear message instead of failing the whole run. The committed comparison is in
+[`eval/benchmarks/summary.md`](eval/benchmarks/summary.md). See
 [`BENCHMARKS.md`](BENCHMARKS.md) for the full procedure, metrics, LM Studio
 setup and the traps of local benchmarking.
 
