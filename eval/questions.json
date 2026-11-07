@@ -1,7 +1,7 @@
 [
     {
       "id": "hours-saturday",
-      "question": "What time do you open on Saturday?",
+      "question": "What are your opening hours on Saturday?",
       "expected_tools": ["search_policies"],
       "must_match": ["08:00", "20:00"],
       "must_not_match": [],

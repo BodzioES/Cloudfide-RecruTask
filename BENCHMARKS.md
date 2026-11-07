@@ -183,9 +183,11 @@ After the run, copy the summary numbers into something like this:
 | local 8B | LM Studio | 3 | ... | ... | ... | ... | ... | ... |
 | local 14B | LM Studio | 3 | ... | ... | ... | ... | ... | ... |
 
-The committed baseline is **16/16** on `gemini-3.5-flash-lite`
-(`eval/results.md`). Use it as the reference point, not as proof that a larger
-model must be better on this narrow task.
+The full evaluation report is **16/16** on `gemini-3.5-flash-lite`
+(`eval/results.md`, generated 7 November 2026). Use it as the reference point,
+not as proof that a larger model must be better on this narrow task. The
+benchmark table is a separate single-run comparison recorded on the same day,
+before the `delay_days` wording was clarified, so its baseline row is 15/16.
 
 The committed comparison in `eval/benchmarks/summary.md` covers the baseline
 and two local Gemma models. If you run models one at a time, do not edit the

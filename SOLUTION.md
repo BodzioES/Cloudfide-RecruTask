@@ -1,8 +1,8 @@
 # Solution notes
 
-This document explains how the CityWheels help desk agent is built, why the
-important decisions were made, what the evaluation found, and what remains
-limited. For installation and usage, see [`README.md`](README.md).
+This document explains how the CityWheels help desk agent is built, why those
+decisions were made, what the evaluation found, and what remains limited. For
+installation and usage, see [`README.md`](README.md).
 
 ## 1. What was built
 
@@ -19,8 +19,10 @@ A Python 3.11+ command-line assistant that:
 The default model is Google **Gemini** through the `google-genai` SDK. The same
 agent loop can also talk to any OpenAI-compatible endpoint (OpenAI, LM Studio,
 Ollama, vLLM, Groq, OpenRouter); the provider is selected from environment
-variables. The model chooses tools and writes the explanation; all numbers,
-booking data and policy text come from deterministic code and local files.
+variables (`LLM_PROVIDER`, `LLM_MODEL`, `LLM_BASE_URL`, `LLM_API_KEY`) and
+switched by `create_client()` in `src/citywheels/llm.py` (see section 3). The
+model chooses tools and writes the explanation; all numbers, booking data and
+policy text come from deterministic code and local files.
 
 ## 2. Install, run, test, evaluate
 
@@ -300,17 +302,29 @@ full answers.
 
 ### Final result
 
-**16/16 passed** on `gemini-3.5-flash-lite` (committed in `eval/results.md`).
+**16/16 passed** on `gemini-3.5-flash-lite`. The committed report in
+`eval/results.md` was generated on 7 November 2026, after the Stage 10 changes.
 
 The answers contain the expected amounts and explanations, for example
 `340.00 EUR` for CW-1002 with a 50% rental refund and the card refund method, and
 `50.00 EUR` for CW-1003 where the rental refund is 0% but the deposit is
 returned.
 
-The same run was repeated after the Stage 10 changes. The stateless path still
-passes; the real session smoke test produced `340.00 EUR` for "now" and
-`300.00 EUR` for "tomorrow" with the correct 0% rental / full deposit
-breakdown.
+The first full runs after Stage 10 scored 15/16 and exposed two issues. In
+`refund-1010` the question asks to cancel exactly 24 hours before a rental that
+starts in 24 hours, so the cancellation moment is now and `delay_days` must be
+`0`; the model chose `1` and cancelled at the start instead. The tool schema now
+states that `delay_days` is counted from the current time, not from the booking
+start, and the prompt tells the model to use `get_booking`'s `hours_until_start`
+when the customer names a moment relative to the start. A separate run dropped
+the closing time for `hours-saturday` because the question asked only "What time
+do you open on Saturday?" while the rubric also required the closing time; the
+question now asks for the opening hours. After both fixes the full suite passed
+16/16.
+
+The evaluation path is stateless. A separate real session smoke test, run after
+Stage 10, produced `340.00 EUR` for "now" and `300.00 EUR` for "tomorrow" with
+the correct 0% rental / full deposit breakdown.
 
 ### Benchmarks
 
@@ -342,10 +356,12 @@ instead of `0`, which moved the cancellation to the start time and returned
 `150.00 EUR` instead of `170.00 EUR`. The tool output is in the raw JSON, so the
 mistake is traceable.
 
-These are single runs, not a ranking: the same baseline produced 16/16 in the
-full evaluation, so a one-question difference is noise. The local models are no
-longer available, but the raw answers and tool calls are committed in
-`eval/benchmarks/*.json`.
+These are single runs, not a ranking. The comparison was recorded on 7 November
+2026, before the `delay_days` clarification described above; that is why the
+baseline here has 15/16 (`refund-1010`) while the later full evaluation passed
+16/16. The local models used for the comparison are no longer available, so the
+benchmark was not repeated after the wording change. The raw answers and tool
+calls from the recorded run are committed in `eval/benchmarks/*.json`.
 
 ### Failures found and fixed
 
@@ -373,11 +389,17 @@ Fixes:
    in scope even when the answer is "no".
 5. **Default model change.** `gemini-3.5-flash-lite` was chosen because it can
    finish the whole suite within the free tier.
+6. **Cancellation-moment wording.** `delay_days` is counted from now, not from
+   the booking start. The prompt and tool schema now say so, and the model is
+   told to use `hours_until_start` when the customer describes the moment
+   relative to the start. This fixed the `refund-1010` failure described above.
+7. **Opening-hours question wording.** The rubric required both the opening and
+   closing times, but the question only asked "What time do you open on
+   Saturday?". It now asks "What are your opening hours on Saturday?", so the
+   check matches what the customer actually asked.
 
-Two genuine issues were observed along the way. One run of `hours-saturday`
-dropped the closing time from the answer; it passed on every rerun, so it is
-treated as provider flakiness, not a deterministic bug. The `sell-bikes` failure
-was reproducible and was fixed by the prompt clarification above.
+The `sell-bikes` failure was reproducible and was fixed by the prompt
+clarification above.
 
 ## 7. AI-assistant usage
 

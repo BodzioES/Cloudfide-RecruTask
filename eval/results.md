@@ -1,34 +1,35 @@
 # Evaluation results
 
 - **Model:** `gemini-3.5-flash-lite`
+- **Provider:** `gemini`
 - **Reference time:** `2026-06-10T09:00:00+02:00`
-- **Generated:** `2026-11-06T20:30:06+00:00`
+- **Generated:** `2026-11-07T22:05:00+00:00`
 - **Score:** **16/16 passed**
 
 | # | ID | Result | Tools | Time |
 | --- | --- | --- | --- | --- |
-| 1 | `hours-saturday` | PASS | `search_policies` | 1.9s |
+| 1 | `hours-saturday` | PASS | `search_policies` | 1.4s |
 | 2 | `price-ebike-day` | PASS | `search_policies` | 1.2s |
-| 3 | `age-14-ebike` | PASS | `search_policies` | 1.6s |
-| 4 | `child-seat-price` | PASS | `search_policies` | 1.2s |
-| 5 | `deposit-city` | PASS | `search_policies` | 20.9s |
+| 3 | `age-14-ebike` | PASS | `search_policies` | 1.1s |
+| 4 | `child-seat-price` | PASS | `search_policies` | 63.9s |
+| 5 | `deposit-city` | PASS | `search_policies` | 1.2s |
 | 6 | `bike-abroad` | PASS | `search_policies` | 1.2s |
-| 7 | `sell-bikes` | PASS | `search_policies` | 1.0s |
-| 8 | `refund-1002` | PASS | `get_booking`, `calculate_refund` | 1.6s |
-| 9 | `refund-1001` | PASS | `get_booking`, `calculate_refund` | 1.4s |
-| 10 | `refund-1003` | PASS | `get_booking`, `calculate_refund` | 1.6s |
+| 7 | `sell-bikes` | PASS | `search_policies` | 1.3s |
+| 8 | `refund-1002` | PASS | `get_booking`, `calculate_refund` | 1.7s |
+| 9 | `refund-1001` | PASS | `get_booking`, `calculate_refund` | 2.5s |
+| 10 | `refund-1003` | PASS | `get_booking`, `calculate_refund` | 1.4s |
 | 11 | `refund-1007` | PASS | `get_booking`, `calculate_refund` | 2.1s |
-| 12 | `refund-1010` | PASS | `get_booking`, `calculate_refund` | 1.6s |
-| 13 | `refund-1004-voucher` | PASS | `get_booking`, `calculate_refund` | 41.2s |
-| 14 | `refusal-australia` | PASS | - | 0.7s |
+| 12 | `refund-1010` | PASS | `get_booking`, `calculate_refund` | 2.0s |
+| 13 | `refund-1004-voucher` | PASS | `get_booking`, `calculate_refund` | 1.5s |
+| 14 | `refusal-australia` | PASS | - | 0.6s |
 | 15 | `refusal-netflix` | PASS | - | 0.6s |
-| 16 | `unknown-booking` | PASS | `get_booking` | 1.1s |
+| 16 | `unknown-booking` | PASS | `get_booking` | 93.1s |
 
 ## Details
 
 ### `hours-saturday` - PASS
 
-**Question:** What time do you open on Saturday?
+**Question:** What are your opening hours on Saturday?
 
 **Expected tools:** `search_policies`
 **Must match:** `08:00`, `20:00`
@@ -43,9 +44,10 @@
 
 **Answer:**
 
-> CityWheels opening hours on Saturday depend on the season:
-> - **April to October:** 08:00–20:00 every day
-> - **November to March:** 09:00–17:00 (Monday to Saturday)
+> Our opening hours on Saturday depend on the season:
+>
+> - From April to October, we are open every day from 08:00 to 20:00.
+> - From November to March, we are open Monday to Saturday from 09:00 to 17:00.
 
 ### `price-ebike-day` - PASS
 
@@ -60,13 +62,13 @@
 **Iterations:** 2
 
 **Tool calls:**
-- `search_policies` args=`{"query": "electric bike full day price cost rate"}` result=`{"found": true, "query": "electric bike full day price cost rate", "results": [{"document": "Prices", "heading": "Bike rental", "line_start": 5, "score": 5.195, "source": "prices.md", "text": "| Bike type | Per hour | Per day |\n| --- | --- | --- |\n| City bike (`city`) | 4 EUR | 20 EUR |\n| Elec...`
+- `search_policies` args=`{"query": "electric bike full day price cost"}` result=`{"found": true, "query": "electric bike full day price cost", "results": [{"document": "Prices", "heading": "Bike rental", "line_start": 5, "score": 5.195, "source": "prices.md", "text": "| Bike type | Per hour | Per day |\n| --- | --- | --- |\n| City bike (`city`) | 4 EUR | 20 EUR |\n| Electric ...`
 
 **Answer:**
 
-> An electric bike costs 40.00 EUR for a full day (up to 24 hours). 
-> 
-> A 150.00 EUR deposit is also required for the electric bike, which is returned in full when the bike comes back on time and without damage.
+> An electric bike costs 40.00 EUR for a full day (up to 24 hours).
+>
+> Please note that there is also a deposit of 150.00 EUR required for an electric bike, which is paid with the booking and returned when the bike comes back on time and without damage.
 
 ### `age-14-ebike` - PASS
 
@@ -81,13 +83,13 @@
 **Iterations:** 2
 
 **Tool calls:**
-- `search_policies` args=`{"query": "age requirement electric bike rent minimum age"}` result=`{"found": true, "query": "age requirement electric bike rent minimum age", "results": [{"document": "Frequently asked questions", "heading": "Are there age limits?", "line_start": 23, "score": 9.7618, "source": "faq.md", "text": "- Kids bikes: for children from 6 to 12 years old, rented by a pare...`
+- `search_policies` args=`{"query": "minimum age electric bike e-bike minor"}` result=`{"found": true, "query": "minimum age electric bike e-bike minor", "results": [{"document": "Frequently asked questions", "heading": "Are there age limits?", "line_start": 23, "score": 6.0276, "source": "faq.md", "text": "- Kids bikes: for children from 6 to 12 years old, rented by a parent or gu...`
 
 **Answer:**
 
-> No, a 14-year-old cannot rent an electric bike. Electric bikes are available only for riders from 16 years old (with a parent or guardian's signature required for anyone under 18). 
-> 
-> However, city bikes are available for riders from 13 years old, also requiring a parent or guardian's signature if the rider is under 18.
+> No, electric bikes can only be rented by riders who are at least 16 years old.
+>
+> City bikes are available from 13 years old, and kids bikes are for children from 6 to 12 years old.
 
 ### `child-seat-price` - PASS
 
@@ -102,7 +104,7 @@
 **Iterations:** 2
 
 **Tool calls:**
-- `search_policies` args=`{"query": "child seat cost price accessory"}` result=`{"found": true, "query": "child seat cost price accessory", "results": [{"document": "Prices", "heading": "Add-ons", "line_start": 17, "score": 7.9899, "source": "prices.md", "text": "| Add-on | Price |\n| --- | --- |\n| Child seat (`child_seat`) | 3 EUR per day |\n| Extra lock | Free |\n| Helmet...`
+- `search_policies` args=`{"query": "child seat cost price"}` result=`{"found": true, "query": "child seat cost price", "results": [{"document": "Prices", "heading": "Add-ons", "line_start": 17, "score": 7.9899, "source": "prices.md", "text": "| Add-on | Price |\n| --- | --- |\n| Child seat (`child_seat`) | 3 EUR per day |\n| Extra lock | Free |\n| Helmet | Free |"...`
 
 **Answer:**
 
@@ -121,13 +123,11 @@
 **Iterations:** 2
 
 **Tool calls:**
-- `search_policies` args=`{"query": "deposit city bike"}` result=`{"found": true, "query": "deposit city bike", "results": [{"document": "Prices", "heading": "Deposit", "line_start": 29, "score": 4.3615, "source": "prices.md", "text": "Every bike needs a deposit, paid with the booking:\n\n| Bike type | Deposit per bike |\n| --- | --- |\n| City bike | 50 EUR |\n...`
+- `search_policies` args=`{"query": "deposit"}` result=`{"found": true, "query": "deposit", "results": [{"document": "Prices", "heading": "Deposit", "line_start": 29, "score": 1.9224, "source": "prices.md", "text": "Every bike needs a deposit, paid with the booking:\n\n| Bike type | Deposit per bike |\n| --- | --- |\n| City bike | 50 EUR |\n| Electric...`
 
 **Answer:**
 
-> The deposit for a city bike is 50.00 EUR per bike, paid with the booking. 
-> 
-> The deposit is returned in full when the bike is returned on time and without damage, which is checked by the staff upon return.
+> The deposit for a city bike is 50.00 EUR per bike, paid with the booking.
 
 ### `bike-abroad` - PASS
 
@@ -142,7 +142,7 @@
 **Iterations:** 2
 
 **Tool calls:**
-- `search_policies` args=`{"query": "take rented bike to another country international cross border"}` result=`{"found": true, "query": "take rented bike to another country international cross border", "results": [{"document": "Frequently asked questions", "heading": "Can I take the bike on a train or outside the city?", "line_start": 37, "score": 7.0203, "source": "faq.md", "text": "Yes, inside the count...`
+- `search_policies` args=`{"query": "another country cross border travel abroad"}` result=`{"found": true, "query": "another country cross border travel abroad", "results": [{"document": "Frequently asked questions", "heading": "Can I take the bike on a train or outside the city?", "line_start": 37, "score": 5.8117, "source": "faq.md", "text": "Yes, inside the country. Taking a bike ab...`
 
 **Answer:**
 
@@ -161,7 +161,7 @@
 **Iterations:** 2
 
 **Tool calls:**
-- `search_policies` args=`{"query": "sell bikes"}` result=`{"found": true, "query": "sell bikes", "results": [{"document": "Frequently asked questions", "heading": "Do you sell bikes?", "line_start": 49, "score": 6.1491, "source": "faq.md", "text": "No. We only rent bikes."}, {"document": "Prices", "heading": "Deposit", "line_start": 29, "score": 1.107, ...`
+- `search_policies` args=`{"query": "sell bikes sales purchase"}` result=`{"found": true, "query": "sell bikes sales purchase", "results": [{"document": "Frequently asked questions", "heading": "Do you sell bikes?", "line_start": 49, "score": 6.1491, "source": "faq.md", "text": "No. We only rent bikes."}, {"document": "Prices", "heading": "Deposit", "line_start": 29, "...`
 
 **Answer:**
 
@@ -182,18 +182,18 @@
 
 **Tool calls:**
 - `get_booking` args=`{"booking_id": "CW-1002"}` result=`{"add_ons": [], "bike_type": "e-bike", "bikes": 2, "booking_fee_eur": "2.00", "deposit_eur": "300.00", "end": "2026-06-12T18:00:00+02:00", "found": true, "hours_until_start": 33.0, "id": "CW-1002", "paid_with": "card", "rental_price_eur": "80.00", "start": "2026-06-11T18:00:00+02:00", "status": "...`
-- `calculate_refund` args=`{"booking_id": "CW-1002"}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1002", "cancellable": true, "deposit_refund_eur": "300.00", "found": true, "reason": "Cancelled 33 hours before the start: 50% of the rental price. The deposit is refunded in full.", "refund_method": "card", "refund_note": "The rental refund ...`
+- `calculate_refund` args=`{"booking_id": "CW-1002", "delay_days": 0}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1002", "cancel_at": "2026-06-10T09:00:00+02:00", "cancellable": true, "delay_days": 0, "deposit_refund_eur": "300.00", "found": true, "reason": "Cancelled 33 hours before the start: 50% of the rental price. The deposit is refunded in full.", ...`
 
 **Answer:**
 
-> If you cancel booking CW-1002 right now, you will get back a total of 340.00 EUR. 
-> 
+> If you cancel now, you will get back a total of 340.00 EUR.
+>
 > Here is the breakdown:
-> * **Rental refund:** 40.00 EUR (50% of the 80.00 EUR rental price, since it is cancelled 33 hours before the start)
-> * **Deposit refund:** 300.00 EUR (refunded in full)
+> * **Rental refund:** 40.00 EUR (50% of the 80.00 EUR rental price, since you are cancelling 33 hours before the start)
+> * **Deposit:** 300.00 EUR (refunded in full)
 > * **Booking fee:** 0.00 EUR (non-refundable)
-> 
-> The total refund of 340.00 EUR will be returned to your original card within 5 working days. Please note that I can only provide this information, and our staff will need to perform the actual cancellation for you.
+>
+> The simulated cancellation moment is 2026-06-10T09:00:00+02:00, and the refund will be returned to your original card.
 
 ### `refund-1001` - PASS
 
@@ -206,22 +206,24 @@
 **Reasons:**
 - none
 
-**Iterations:** 2
+**Iterations:** 3
 
 **Tool calls:**
 - `get_booking` args=`{"booking_id": "CW-1001"}` result=`{"add_ons": [], "bike_type": "city", "bikes": 1, "booking_fee_eur": "2.00", "deposit_eur": "50.00", "end": "2026-06-15T10:00:00+02:00", "found": true, "hours_until_start": 73.0, "id": "CW-1001", "paid_with": "card", "rental_price_eur": "40.00", "start": "2026-06-13T10:00:00+02:00", "status": "con...`
-- `calculate_refund` args=`{"booking_id": "CW-1001"}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1001", "cancellable": true, "deposit_refund_eur": "50.00", "found": true, "reason": "Cancelled 73 hours before the start: 100% of the rental price. The deposit is refunded in full.", "refund_method": "card", "refund_note": "The rental refund ...`
+- `calculate_refund` args=`{"booking_id": "CW-1001", "delay_days": 0}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1001", "cancel_at": "2026-06-10T09:00:00+02:00", "cancellable": true, "delay_days": 0, "deposit_refund_eur": "50.00", "found": true, "reason": "Cancelled 73 hours before the start: 100% of the rental price. The deposit is refunded in full.", ...`
 
 **Answer:**
 
-> I cannot cancel bookings directly, but I can tell you what refund you would receive if this booking is cancelled. 
-> 
-> For booking CW-1001, you would receive a total refund of 90.00 EUR. 
-> * **Rental price:** 40.00 EUR (100% refunded)
-> * **Deposit:** 50.00 EUR (fully refunded)
-> * **Booking fee:** 0.00 EUR (non-refundable)
-> 
-> The rental refund and deposit are returned to your original card within 5 working days. Please contact our staff to proceed with the cancellation.
+> Please note that I cannot cancel your booking directly, but I can provide the details of what you should expect if you cancel right now. Staff can process the cancellation for you.
+>
+> If cancelled right now, you can expect a total refund of 90.00 EUR
+> .
+> Here is the breakdown:
+> - Rental price refund: 40.00 EUR (100% refunded)
+> - Deposit refund: 50.00 EUR
+> - Booking fee refund: 0.00 EUR
+>
+> The refund will be returned to your original card within 5 working days.
 
 ### `refund-1003` - PASS
 
@@ -238,19 +240,18 @@
 
 **Tool calls:**
 - `get_booking` args=`{"booking_id": "CW-1003"}` result=`{"add_ons": [], "bike_type": "city", "bikes": 1, "booking_fee_eur": "2.00", "deposit_eur": "50.00", "end": "2026-06-10T18:00:00+02:00", "found": true, "hours_until_start": 6.0, "id": "CW-1003", "paid_with": "card", "rental_price_eur": "12.00", "start": "2026-06-10T15:00:00+02:00", "status": "conf...`
-- `calculate_refund` args=`{"booking_id": "CW-1003"}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1003", "cancellable": true, "deposit_refund_eur": "50.00", "found": true, "reason": "Cancelled 6 hours before the start: 0% of the rental price. The deposit is refunded in full.", "refund_method": "card", "refund_note": "The rental refund and...`
+- `calculate_refund` args=`{"booking_id": "CW-1003", "delay_days": 0}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1003", "cancel_at": "2026-06-10T09:00:00+02:00", "cancellable": true, "delay_days": 0, "deposit_refund_eur": "50.00", "found": true, "reason": "Cancelled 6 hours before the start: 0% of the rental price. The deposit is refunded in full.", "re...`
 
 **Answer:**
 
-> If you cancel booking CW-1003 today, you will receive a total refund of 50.00 EUR. 
-> 
-> **Breakdown:**
-> * Rental price refund: 0.00 EUR (0% refunded because it is cancelled 6 hours before the start)
-> * Deposit refund: 50.00 EUR
-> * Booking fee: 0.00 EUR (non-refundable)
-> 
-> **Refund method:**
-> The refund will be returned to your original card within 5 working days.
+> If you cancel today, your total refund will be 50.00 EUR.
+>
+> Here is the breakdown:
+> - Rental price: 0.00 EUR (0% refunded because you are cancelling 6 hours before the start)
+> - Deposit: 50.00 EUR
+> - Booking fee: 0.00 EUR
+>
+> The refund will be sent to your card within 5 working days.
 
 ### `refund-1007` - PASS
 
@@ -263,22 +264,22 @@
 **Reasons:**
 - none
 
-**Iterations:** 2
+**Iterations:** 3
 
 **Tool calls:**
 - `get_booking` args=`{"booking_id": "CW-1007"}` result=`{"add_ons": [], "bike_type": "e-bike", "bikes": 1, "booking_fee_eur": "2.00", "deposit_eur": "150.00", "end": "2026-06-12T13:00:00+02:00", "found": true, "hours_until_start": 48.0, "id": "CW-1007", "paid_with": "card", "rental_price_eur": "36.00", "start": "2026-06-12T09:00:00+02:00", "status": "...`
-- `calculate_refund` args=`{"booking_id": "CW-1007"}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1007", "cancellable": true, "deposit_refund_eur": "150.00", "found": true, "reason": "Cancelled 48 hours before the start: 100% of the rental price. The deposit is refunded in full.", "refund_method": "card", "refund_note": "The rental refund...`
+- `calculate_refund` args=`{"booking_id": "CW-1007", "delay_days": 0}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1007", "cancel_at": "2026-06-10T09:00:00+02:00", "cancellable": true, "delay_days": 0, "deposit_refund_eur": "150.00", "found": true, "reason": "Cancelled 48 hours before the start: 100% of the rental price. The deposit is refunded in full.",...`
 
 **Answer:**
 
-> If you cancel booking CW-1007 right now, you will receive a total refund of 186.00 EUR. 
-> 
-> Here is the breakdown:
-> - Rental price refund (100%): 36.00 EUR
-> - Deposit refund: 150.00 EUR
-> - Booking fee: 0.00 EUR (booking fees are non-refundable)
-> 
-> The total amount of 186.00 EUR will be refunded to your card within 5 working days.
+> If you cancel now, your total refund will be 186.00 EUR.
+>
+> Here is the breakdown of the refund if cancelled now (simulated at 2026-06-10T09:00:00+02:00):
+> - **Rental refund:** 36.00 EUR (100% of the rental price)
+> - **Deposit refund:** 150.00 EUR
+> - **Booking fee refund:** 0.00 EUR
+>
+> The refund will be returned to your original card within 5 working days.
 
 ### `refund-1010` - PASS
 
@@ -291,22 +292,22 @@
 **Reasons:**
 - none
 
-**Iterations:** 2
+**Iterations:** 3
 
 **Tool calls:**
 - `get_booking` args=`{"booking_id": "CW-1010"}` result=`{"add_ons": [], "bike_type": "e-bike", "bikes": 1, "booking_fee_eur": "0.00", "deposit_eur": "150.00", "end": "2026-06-12T09:00:00+02:00", "found": true, "hours_until_start": 24.0, "id": "CW-1010", "paid_with": "card", "rental_price_eur": "40.00", "start": "2026-06-11T09:00:00+02:00", "status": "...`
-- `calculate_refund` args=`{"booking_id": "CW-1010"}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1010", "cancellable": true, "deposit_refund_eur": "150.00", "found": true, "reason": "Cancelled 24 hours before the start: 50% of the rental price. The deposit is refunded in full.", "refund_method": "card", "refund_note": "The rental refund ...`
+- `calculate_refund` args=`{"booking_id": "CW-1010", "delay_days": 0}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1010", "cancel_at": "2026-06-10T09:00:00+02:00", "cancellable": true, "delay_days": 0, "deposit_refund_eur": "150.00", "found": true, "reason": "Cancelled 24 hours before the start: 50% of the rental price. The deposit is refunded in full.", ...`
 
 **Answer:**
 
-> If you cancel booking CW-1010 right now, you will get back a total of 170.00 EUR. 
-> 
-> Here is the breakdown:
-> * **Rental price refund:** 20.00 EUR (50% of the 40.00 EUR rental price)
-> * **Deposit refund:** 150.00 EUR (returned in full)
-> * **Booking fee refund:** 0.00 EUR
-> 
-> The total refund of 170.00 EUR will be returned to your original card within 5 working days. Please note that I can only provide this information, and the staff performs the actual cancellation.
+> If you cancel booking CW-1010 now (which is 24 hours before the start), you will get a total refund of 170.00 EUR.
+>
+> **Breakdown:**
+> * Rental refund (50%): 20.00 EUR
+> * Deposit: 150.00 EUR
+> * Booking fee: 0.00 EUR
+>
+> The refund will be returned to your original card within 5 working days. Please note that I can provide information only; the staff performs the actual cancellation.
 
 ### `refund-1004-voucher` - PASS
 
@@ -323,19 +324,19 @@
 
 **Tool calls:**
 - `get_booking` args=`{"booking_id": "CW-1004"}` result=`{"add_ons": ["child_seat"], "bike_type": "city", "bikes": 1, "booking_fee_eur": "2.00", "deposit_eur": "50.00", "end": "2026-06-21T09:00:00+02:00", "found": true, "hours_until_start": 240.0, "id": "CW-1004", "paid_with": "voucher", "rental_price_eur": "23.00", "start": "2026-06-20T09:00:00+02:00"...`
-- `calculate_refund` args=`{"booking_id": "CW-1004"}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1004", "cancellable": true, "deposit_refund_eur": "50.00", "found": true, "reason": "Cancelled 240 hours before the start: 100% of the rental price. The deposit is refunded in full.", "refund_method": "voucher", "refund_note": "The rental ref...`
+- `calculate_refund` args=`{"booking_id": "CW-1004", "delay_days": 0}` result=`{"booking_fee_refunded_eur": "0.00", "booking_id": "CW-1004", "cancel_at": "2026-06-10T09:00:00+02:00", "cancellable": true, "delay_days": 0, "deposit_refund_eur": "50.00", "found": true, "reason": "Cancelled 240 hours before the start: 100% of the rental price. The deposit is refunded in full.",...`
 
 **Answer:**
 
-> If you cancel booking CW-1004 right now, you will receive a total refund of 73.00 EUR. 
-> 
-> Here is the breakdown:
-> * **Rental price refund:** 23.00 EUR (100% of the rental price)
-> * **Deposit refund:** 50.00 EUR
-> * **Booking fee:** 0.00 EUR (the booking fee is non-refundable)
-> 
+> If you cancel booking CW-1004 now, you will get a total refund of 73.00 EUR.
+>
+> **Breakdown:**
+> * Rental refund: 23.00 EUR (100% of the rental price)
+> * Deposit refund: 50.00 EUR
+> * Booking fee: 0.00 EUR
+>
 > **Refund method:**
-> The rental refund and deposit are returned as a new CityWheels voucher, never as money.
+> The rental refund and the deposit are returned as a new CityWheels voucher, never as money.
 
 ### `refusal-australia` - PASS
 
@@ -353,7 +354,7 @@
 
 **Answer:**
 
-> I can only help with CityWheels rentals. If you need assistance, please contact our staff at help@citywheels.example or +48 000 000 000.
+> I can only help with CityWheels rentals. For any other questions, please contact our staff at help@citywheels.example or +48 000 000 000.
 
 ### `refusal-netflix` - PASS
 
@@ -371,7 +372,7 @@
 
 **Answer:**
 
-> I can only help with CityWheels rentals. For other questions, please contact our staff at help@citywheels.example or +48 000 000 000.
+> I can only help with CityWheels rentals. For further assistance, you can contact our staff at help@citywheels.example or +48 000 000 000.
 
 ### `unknown-booking` - PASS
 

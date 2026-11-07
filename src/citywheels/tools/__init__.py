@@ -84,8 +84,9 @@ TOOL_SCHEMAS: list[dict[str, object]] = [
                 "delay_days": {
                     "type": "INTEGER",
                     "description": (
-                        "Whole days from now to the simulated cancellation. "
-                        "0 means now (the default), 1 means tomorrow. "
+                        "Whole days from now to the simulated cancellation, "
+                        "counted from the current time, not from the booking "
+                        "start. 0 means now (the default), 1 means tomorrow. "
                         f"Allowed range 0-{refund_tools.MAX_DELAY_DAYS}."
                     ),
                 },

@@ -185,9 +185,9 @@ question failed, `2` invalid configuration or question file, `3` part of the run
 was blocked by the provider quota (remaining questions are marked `BLOCKED`, not
 reported as model failures).
 
-The committed report is **16/16 passed** on `gemini-3.5-flash-lite`. See
-[`SOLUTION.md`](SOLUTION.md) for the failures found on the way and how they were
-fixed.
+The committed report is **16/16 passed** on `gemini-3.5-flash-lite` (generated
+7 November 2026). See [`SOLUTION.md`](SOLUTION.md) for the failures found on the
+way and how they were fixed.
 
 ## Benchmarks
 
