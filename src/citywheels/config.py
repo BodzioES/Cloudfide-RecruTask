@@ -1,4 +1,10 @@
-"""Runtime configuration: paths, model selection and the fixed reference clock."""
+"""Runtime configuration: paths, provider/model selection and the fixed clock.
+
+Everything a deployment needs to switch between Gemini and an
+OpenAI-compatible endpoint (OpenAI itself, LM Studio, Ollama, vLLM, Groq,
+OpenRouter, ...) is read from environment variables in this one module. No
+application code has to change when the provider changes.
+"""
 
 from __future__ import annotations
 
@@ -12,13 +18,35 @@ from dotenv import load_dotenv
 
 # The assignment fixes "now" so answers stay reproducible.
 REFERENCE_NOW = "2026-06-10T09:00:00+02:00"
+DEFAULT_PROVIDER = "gemini"
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 TIMEZONE = ZoneInfo("Europe/Warsaw")
 
+PROVIDER_GEMINI = "gemini"
+PROVIDER_OPENAI = "openai"
+
 DATA_DIR_ENV = "CITYWHEELS_DATA_DIR"
 NOW_ENV = "CITYWHEELS_NOW"
-MODEL_ENV = "GEMINI_MODEL"
-API_KEY_ENV = "GEMINI_API_KEY"
+PROVIDER_ENV = "LLM_PROVIDER"
+MODEL_ENV = "LLM_MODEL"
+API_KEY_ENV = "LLM_API_KEY"
+BASE_URL_ENV = "LLM_BASE_URL"
+
+# Kept for backwards compatibility with the first Gemini-only releases.
+LEGACY_MODEL_ENV = "GEMINI_MODEL"
+LEGACY_API_KEY_ENV = "GEMINI_API_KEY"
+
+PROVIDER_ALIASES = {
+    "gemini": PROVIDER_GEMINI,
+    "google": PROVIDER_GEMINI,
+    "google-genai": PROVIDER_GEMINI,
+    "openai": PROVIDER_OPENAI,
+    "openai-compatible": PROVIDER_OPENAI,
+    "compatible": PROVIDER_OPENAI,
+    "local": PROVIDER_OPENAI,
+}
+
+LOCAL_API_KEY = "not-needed"
 
 
 class ConfigError(RuntimeError):
@@ -31,14 +59,42 @@ class Settings:
     model: str
     api_key: str | None
     now: datetime
+    provider: str = DEFAULT_PROVIDER
+    base_url: str | None = None
 
     def require_api_key(self) -> str:
-        if not self.api_key:
+        """Return the key, or a clear error for the selected provider.
+
+        A local OpenAI-compatible server usually ignores the key, so a
+        placeholder is enough when ``LLM_BASE_URL`` is set.
+        """
+
+        if self.api_key:
+            return self.api_key
+        if self.provider == PROVIDER_OPENAI and self.base_url:
+            return LOCAL_API_KEY
+        if self.provider == PROVIDER_OPENAI:
             raise ConfigError(
-                f"{API_KEY_ENV} is not set. Copy .env.example to .env and add your "
-                "Google AI Studio API key."
+                f"{API_KEY_ENV} is not set. Add the provider key to .env, or set "
+                f"{BASE_URL_ENV} for a local OpenAI-compatible server."
             )
-        return self.api_key
+        raise ConfigError(
+            f"{LEGACY_API_KEY_ENV} is not set. Copy .env.example to .env and add "
+            "your Google AI Studio API key."
+        )
+
+
+def normalize_provider(value: str | None) -> str:
+    """Map friendly names (``google``, ``local``, ...) to a concrete provider."""
+
+    candidate = (value or DEFAULT_PROVIDER).strip().lower()
+    provider = PROVIDER_ALIASES.get(candidate)
+    if provider is None:
+        allowed = ", ".join(sorted(PROVIDER_ALIASES))
+        raise ConfigError(
+            f"Unknown {PROVIDER_ENV} value {value!r}. Allowed values: {allowed}."
+        )
+    return provider
 
 
 def find_data_dir(start: Path | None = None) -> Path:
@@ -97,10 +153,29 @@ def load_settings(now: str | None = None) -> Settings:
 
     load_dotenv()
     raw_now = now or os.getenv(NOW_ENV) or REFERENCE_NOW
-    model = os.getenv(MODEL_ENV) or DEFAULT_MODEL
+    provider = normalize_provider(os.getenv(PROVIDER_ENV) or DEFAULT_PROVIDER)
+
+    model = os.getenv(MODEL_ENV) or os.getenv(LEGACY_MODEL_ENV)
+    if not model:
+        if provider == PROVIDER_OPENAI:
+            raise ConfigError(
+                f"{MODEL_ENV} must be set when {PROVIDER_ENV}={provider}. "
+                "For example: LLM_MODEL=qwen3-8b."
+            )
+        model = DEFAULT_MODEL
+
+    base_url = os.getenv(BASE_URL_ENV) or None
+    if base_url and provider != PROVIDER_OPENAI:
+        raise ConfigError(
+            f"{BASE_URL_ENV} is only supported for {PROVIDER_ENV}=openai; "
+            f"the current provider is {provider!r}."
+        )
+
     return Settings(
         data_dir=find_data_dir(),
         model=model,
-        api_key=os.getenv(API_KEY_ENV) or None,
+        api_key=os.getenv(API_KEY_ENV) or os.getenv(LEGACY_API_KEY_ENV) or None,
         now=parse_now(raw_now),
+        provider=provider,
+        base_url=base_url,
     )

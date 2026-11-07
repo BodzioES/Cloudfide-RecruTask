@@ -80,6 +80,36 @@ def test_calculate_refund_happy_path(toolbox):
     assert result["total_refund_eur"] == "340.00"
 
 
+def test_calculate_refund_accepts_delay_days(toolbox):
+    result = toolbox.dispatch(
+        "calculate_refund", {"booking_id": "CW-1002", "delay_days": 1}
+    )
+    assert result["found"] is True
+    assert result["delay_days"] == 1
+    assert result["refund_percent_of_rental"] == 0
+    assert result["total_refund_eur"] == "300.00"
+
+
+def test_calculate_refund_schema_documents_delay_days(toolbox):
+    schema = next(
+        schema
+        for schema in toolbox.schemas()
+        if schema["name"] == "calculate_refund"
+    )
+    properties = schema["parameters"]["properties"]
+    assert "delay_days" in properties
+    assert "delay_days" not in schema["parameters"]["required"]
+
+
+@pytest.mark.parametrize("delay_days", [-1, 31, 1.5, "1", True])
+def test_delay_days_outside_the_range_is_rejected(toolbox, delay_days):
+    result = toolbox.dispatch(
+        "calculate_refund", {"booking_id": "CW-1002", "delay_days": delay_days}
+    )
+    assert result["error"] == "invalid_arguments"
+    assert "delay_days" in result["message"]
+
+
 def test_unknown_booking_is_not_an_error(toolbox):
     result = toolbox.dispatch("get_booking", {"booking_id": "CW-9999"})
     assert result["found"] is False

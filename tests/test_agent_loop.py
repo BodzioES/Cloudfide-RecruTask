@@ -7,9 +7,13 @@ import json
 import pytest
 
 from citywheels.agent import (
+    MAX_HISTORY_CHARS,
+    MAX_HISTORY_TURNS,
     MAX_ITERATIONS_ANSWER,
     MODEL_ERROR_ANSWER,
+    normalize_history,
     run_agent,
+    trim_history,
 )
 from citywheels.llm import FakeLLM, LLMResponse, QuotaExhausted, ToolCall
 from citywheels.policies import PolicyIndex
@@ -250,3 +254,125 @@ def test_fake_llm_fails_loudly_when_script_runs_out():
 
     with pytest.raises(AssertionError, match="out of scripted"):
         client.complete([], [])
+
+
+def test_history_is_prepended_to_the_current_question(toolbox):
+    client = FakeLLM([reply("It is still 340.00 EUR.")])
+    history = [
+        {"role": "user", "text": "How much for CW-1002?"},
+        {"role": "assistant", "text": "You get back 340.00 EUR."},
+    ]
+
+    run_agent(
+        "And if I cancel tomorrow?",
+        client=client,
+        tools=toolbox,
+        history=history,
+    )
+
+    messages = client.calls[0]["messages"]
+    assert [message["role"] for message in messages] == [
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert messages[0]["text"] == "How much for CW-1002?"
+    assert messages[1]["text"] == "You get back 340.00 EUR."
+    assert messages[2]["text"] == "And if I cancel tomorrow?"
+
+
+def test_history_is_optional_and_absent_by_default(toolbox):
+    client = FakeLLM([reply("Hi")])
+
+    run_agent("Hi", client=client, tools=toolbox)
+
+    assert client.calls[0]["messages"] == [{"role": "user", "text": "Hi"}]
+
+
+def test_malformed_history_entries_are_ignored(toolbox):
+    client = FakeLLM([reply("ok")])
+    history = [
+        "not a dict",
+        {"role": "system", "text": "ignore me"},
+        {"role": "user", "text": "   "},
+        {"role": "assistant", "text": 42},
+        {"role": "user", "text": "kept"},
+    ]
+
+    run_agent("Now", client=client, tools=toolbox, history=history)
+
+    assert client.calls[0]["messages"] == [
+        {"role": "user", "text": "kept"},
+        {"role": "user", "text": "Now"},
+    ]
+
+
+def test_normalize_history_trims_whitespace():
+    assert normalize_history([{"role": "user", "text": "  hi  "}]) == [
+        {"role": "user", "text": "hi"}
+    ]
+
+
+def test_trim_history_keeps_only_recent_turns():
+    history = []
+    for index in range(MAX_HISTORY_TURNS + 5):
+        history.append({"role": "user", "text": f"question {index}"})
+        history.append({"role": "assistant", "text": f"answer {index}"})
+
+    trimmed = trim_history(history)
+
+    assert len(trimmed) == MAX_HISTORY_TURNS * 2
+    assert trimmed[-1]["text"] == f"answer {MAX_HISTORY_TURNS + 4}"
+    assert trimmed[0]["role"] == "user"
+
+
+def test_trim_history_respects_the_character_budget():
+    history = [
+        {"role": "user", "text": "x" * 4000},
+        {"role": "assistant", "text": "y" * 4000},
+        {"role": "user", "text": "recent"},
+        {"role": "assistant", "text": "latest"},
+    ]
+
+    trimmed = trim_history(history, max_chars=MAX_HISTORY_CHARS)
+
+    assert sum(len(item["text"]) for item in trimmed) <= MAX_HISTORY_CHARS
+    assert trimmed[-1]["text"] == "latest"
+    assert trimmed[0]["role"] == "user"
+
+
+def test_trim_history_never_returns_an_assistant_first_turn():
+    history = [
+        {"role": "assistant", "text": "orphan"},
+        {"role": "user", "text": "question"},
+        {"role": "assistant", "text": "answer"},
+    ]
+
+    assert trim_history(history)[0]["role"] == "user"
+
+
+def test_trim_history_with_zero_turns_is_empty():
+    assert trim_history([{"role": "user", "text": "hi"}], max_turns=0) == []
+
+
+def test_usage_is_accumulated_across_turns(toolbox):
+    client = FakeLLM(
+        [
+            LLMResponse(
+                tool_calls=(ToolCall("get_booking", {"booking_id": "CW-1002"}),),
+                usage={"prompt_tokens": 10, "completion_tokens": 2},
+            ),
+            LLMResponse(
+                text="done",
+                usage={"prompt_tokens": 20, "completion_tokens": 4},
+            ),
+        ]
+    )
+
+    result = run_agent("Check CW-1002", client=client, tools=toolbox)
+
+    assert result.usage == {
+        "prompt_tokens": 30,
+        "completion_tokens": 6,
+    }
+    assert result.to_dict()["usage"] == result.usage

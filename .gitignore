@@ -18,3 +18,7 @@ htmlcov/
 # Local task material (must never be committed)
 /helpdeskagent/
 /helpdeskagent.zip
+
+# Local benchmark configuration (may contain API keys)
+eval/benchmark_models.local.json
+eval/benchmark_models.*.json

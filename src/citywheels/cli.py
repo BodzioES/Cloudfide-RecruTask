@@ -10,10 +10,10 @@ import sys
 from typing import Callable
 
 from . import __version__
-from .agent import AgentResult, run_agent
+from .agent import AgentResult, run_agent, trim_history
 from .bookings import BookingDataError
 from .config import ConfigError, Settings, load_settings
-from .llm import GeminiClient, LLMClient
+from .llm import LLMClient, create_client
 from .tools import Toolbox
 
 EXIT_OK = 0
@@ -61,6 +61,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print tool calls and debug details to stderr.",
     )
     parser.add_argument(
+        "--session",
+        action="store_true",
+        help=(
+            "Remember earlier turns in the interactive session, so follow-up "
+            "questions have context. Single questions stay stateless."
+        ),
+    )
+    parser.add_argument(
         "--now",
         metavar="ISO8601",
         help="Override the reference date and time (default: 2026-06-10T09:00:00+02:00).",
@@ -95,23 +103,37 @@ def main(
         return EXIT_USAGE
 
     try:
-        client = (client_factory or GeminiClient.from_settings)(settings)
+        client = (client_factory or create_client)(settings)
         tools = Toolbox.from_data_dir(settings.data_dir, now=settings.now)
     except (ConfigError, BookingDataError, OSError, ValueError) as error:
         print(f"Configuration error: {error}", file=sys.stderr)
         return EXIT_USAGE
 
     if args.verbose:
+        endpoint = f" base_url={settings.base_url}" if settings.base_url else ""
         print(
-            f"model={settings.model} now={settings.now.isoformat()} "
-            f"data={settings.data_dir}",
+            f"provider={settings.provider} model={settings.model}{endpoint} "
+            f"now={settings.now.isoformat()} data={settings.data_dir}",
             file=sys.stderr,
         )
 
     if question:
-        return _ask(question, client, tools, as_json=args.json, verbose=args.verbose)
+        code, _ = _ask(
+            question,
+            client,
+            tools,
+            as_json=args.json,
+            verbose=args.verbose,
+        )
+        return code
 
-    return _repl(client, tools, as_json=args.json, verbose=args.verbose)
+    return _repl(
+        client,
+        tools,
+        as_json=args.json,
+        verbose=args.verbose,
+        remember=args.session,
+    )
 
 
 def _ask(
@@ -122,16 +144,31 @@ def _ask(
     as_json: bool,
     verbose: bool,
     compact: bool = False,
-) -> int:
-    result = run_agent(question, client=client, tools=tools)
+    history: list[dict[str, str]] | None = None,
+) -> tuple[int, AgentResult]:
+    result = run_agent(question, client=client, tools=tools, history=history)
     _emit(result, as_json=as_json, verbose=verbose, compact=compact)
-    return EXIT_OK if result.error is None else EXIT_RUNTIME
+    return (EXIT_OK if result.error is None else EXIT_RUNTIME), result
 
 
-def _repl(client: LLMClient, tools: Toolbox, *, as_json: bool, verbose: bool) -> int:
-    """Read questions until ``exit``, ``quit`` or end of input."""
+def _repl(
+    client: LLMClient,
+    tools: Toolbox,
+    *,
+    as_json: bool,
+    verbose: bool,
+    remember: bool,
+) -> int:
+    """Read questions until ``exit``, ``quit`` or end of input.
+
+    With ``--session`` the previous turns are sent back to the model as
+    context. Without it every question is independent, exactly like a single
+    command-line call.
+    """
 
     exit_code = EXIT_OK
+    history: list[dict[str, str]] = []
+
     while True:
         sys.stderr.write("> ")
         sys.stderr.flush()
@@ -146,16 +183,26 @@ def _repl(client: LLMClient, tools: Toolbox, *, as_json: bool, verbose: bool) ->
         if text.lower() in {"exit", "quit"}:
             break
 
-        code = _ask(
+        code, result = _ask(
             text,
             client,
             tools,
             as_json=as_json,
             verbose=verbose,
             compact=as_json,
+            history=history if remember else None,
         )
         if code != EXIT_OK:
             exit_code = code
+
+        if remember and result.error is None:
+            history = trim_history(
+                [
+                    *history,
+                    {"role": "user", "text": text},
+                    {"role": "assistant", "text": result.answer},
+                ]
+            )
 
     return exit_code
 

@@ -248,3 +248,64 @@ def test_client_factory_receives_the_settings(use_settings):
     main(["Hello"], client_factory=factory)
 
     assert seen["settings"] is use_settings
+
+
+def test_session_flag_keeps_previous_turns(use_settings, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("first\nsecond\nexit\n"))
+    client = FakeLLM(
+        [
+            LLMResponse(text="first answer"),
+            LLMResponse(text="second answer"),
+        ]
+    )
+
+    code = main(["--session"], client_factory=lambda settings: client)
+
+    assert code == EXIT_OK
+    assert len(client.calls) == 2
+    second = client.calls[1]["messages"]
+    assert [message["role"] for message in second] == [
+        "user",
+        "assistant",
+        "user",
+    ]
+    assert second[0]["text"] == "first"
+    assert second[1]["text"] == "first answer"
+    assert second[2]["text"] == "second"
+    capsys.readouterr()
+
+
+def test_without_session_each_question_is_stateless(
+    use_settings, monkeypatch, capsys
+):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("first\nsecond\nexit\n"))
+    client = FakeLLM(
+        [
+            LLMResponse(text="first answer"),
+            LLMResponse(text="second answer"),
+        ]
+    )
+
+    code = main([], client_factory=lambda settings: client)
+
+    assert code == EXIT_OK
+    assert client.calls[1]["messages"] == [{"role": "user", "text": "second"}]
+    capsys.readouterr()
+
+
+def test_failed_turn_is_not_stored_in_session_memory(
+    use_settings, monkeypatch, capsys
+):
+    monkeypatch.setattr(sys, "stdin", io.StringIO("boom\nfine\nexit\n"))
+    client = FakeLLM(
+        [
+            RuntimeError("network down"),
+            LLMResponse(text="recovered"),
+        ]
+    )
+
+    code = main(["--session"], client_factory=lambda settings: client)
+
+    assert code == EXIT_RUNTIME
+    assert client.calls[1]["messages"] == [{"role": "user", "text": "fine"}]
+    capsys.readouterr()

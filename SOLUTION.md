@@ -10,13 +10,17 @@ A Python 3.11+ command-line assistant that:
 
 - answers shop-policy questions from `data/policies/*.md`,
 - looks up bookings from `data/bookings.json`,
-- computes cancellation refunds in code,
+- computes cancellation refunds in code, including a simulated cancellation
+  tomorrow (`delay_days`),
+- keeps conversation memory for follow-up questions with `--session`,
 - refuses unrelated questions,
 - never performs a cancellation or booking change itself.
 
-The model is Google **Gemini** through the `google-genai` SDK. The model chooses
-tools and writes the explanation; all numbers, booking data and policy text come
-from deterministic code and local files.
+The default model is Google **Gemini** through the `google-genai` SDK. The same
+agent loop can also talk to any OpenAI-compatible endpoint (OpenAI, LM Studio,
+Ollama, vLLM, Groq, OpenRouter); the provider is selected from environment
+variables. The model chooses tools and writes the explanation; all numbers,
+booking data and policy text come from deterministic code and local files.
 
 ## 2. Install, run, test, evaluate
 
@@ -27,19 +31,37 @@ python -m venv .venv
 python -m pip install -e ".[dev]"
 
 cp .env.example .env          # Windows: copy .env.example .env
-# put GEMINI_API_KEY=... in .env
+# put LLM_API_KEY=... in .env (Gemini by default)
 
 python -m citywheels "What time do you open on Saturday?"
 python -m citywheels                                    # interactive REPL
+python -m citywheels --session                          # REPL with memory
 python -m citywheels "..." --json                       # full result as JSON
 python -m citywheels "..." --verbose                    # tool calls on stderr
 
-python -m pytest -q                                     # 200 offline tests
-python eval/run_eval.py                                 # real Gemini evaluation
+python -m pytest -q                                     # 277 offline tests
+python eval/run_eval.py                                 # real model evaluation
+python eval/benchmark.py                                # compare several models
 ```
 
 Useful evaluation flags: `--limit N`, `--only ID` (repeatable or comma-separated),
-`--model NAME`, `--now ISO8601`, `--delay SECONDS`, `--output PATH`.
+`--model NAME`, `--provider NAME`, `--base-url URL`, `--now ISO8601`,
+`--delay SECONDS`, `--output PATH`.
+
+Provider switching needs only environment variables:
+
+```dotenv
+# Gemini (default)
+LLM_PROVIDER=gemini
+LLM_MODEL=gemini-3.5-flash-lite
+LLM_API_KEY=...
+
+# Local LM Studio
+LLM_PROVIDER=openai-compatible
+LLM_MODEL=qwen3-8b
+LLM_BASE_URL=http://localhost:1234/v1
+LLM_API_KEY=lm-studio
+```
 
 Exit codes:
 
@@ -52,6 +74,10 @@ Exit codes:
 | eval | `1` | at least one question failed |
 | eval | `2` | invalid configuration or question file |
 | eval | `3` | part of the run was blocked by the provider quota |
+| benchmark | `0` | every executed question passed |
+| benchmark | `1` | at least one executed question failed |
+| benchmark | `2` | configuration problem, or no model could run |
+| benchmark | `3` | a provider quota blocked part of a run |
 
 ## 3. Model and provider choice
 
@@ -71,9 +97,27 @@ The model choice was driven by real errors, not by a preference for a name:
 | **`gemini-3.5-flash-lite`** | works, higher daily headroom, **16/16 in evaluation** |
 
 The default is therefore `gemini-3.5-flash-lite`. It is configurable through
-`GEMINI_MODEL`; `gemini-3.6-flash` gives good answers for individual questions
-but cannot complete the full evaluation on a free key. `temperature` is `0` so
-repeated runs are as stable as the provider allows.
+`LLM_MODEL` (the old `GEMINI_MODEL` still works); `gemini-3.6-flash` gives good
+answers for individual questions but cannot complete the full evaluation on a
+free key. `temperature` is `0` so repeated runs are as stable as the provider
+allows.
+
+### Provider abstraction
+
+The agent loop depends only on the `LLMClient` protocol (`complete(messages,
+tools, system_instruction) -> LLMResponse`). Two adapters implement it:
+
+- `GeminiClient` - Google Gemini through `google-genai`, with Gemini
+  `retryDelay` handling and thought-signature preservation;
+- `OpenAICompatibleClient` - the chat-completions contract used by OpenAI,
+  LM Studio, Ollama, vLLM, llama.cpp, Groq, OpenRouter and similar gateways.
+
+`create_client(settings)` is the single switch. It reads `LLM_PROVIDER`,
+`LLM_MODEL`, `LLM_API_KEY` and `LLM_BASE_URL` from `config.py`; no other module
+knows which provider is active. The OpenAI adapter converts the neutral tool
+schemas to lowercase JSON Schema, generates `tool_call_id` values and pairs them
+with the matching `role: tool` messages, so the agent loop itself stays
+provider-neutral.
 
 No embeddings are used. The policy corpus is three short Markdown files, so a
 local keyword scorer is faster, deterministic and easier to test.
@@ -82,25 +126,60 @@ local keyword scorer is faster, deterministic and easier to test.
 
 ```text
 CLI (cli.py)
-  ├─ Settings (config.py)            env vars, data directory, fixed clock
+  ├─ Settings (config.py)            env vars, provider, data directory, clock
   ├─ Toolbox (tools/)               schemas, validation, safe dispatcher
   │    ├─ BookingStore              data/bookings.json
   │    ├─ PolicyIndex               data/policies/*.md
   │    └─ fixed "now"               2026-06-10T09:00:00+02:00
   └─ run_agent (agent.py)
-       └─ GeminiClient (llm.py) ── function calls ──> Toolbox.dispatch
+       ├─ optional history          last N text turns from the REPL
+       └─ create_client (llm.py)
+            ├─ GeminiClient
+            └─ OpenAICompatibleClient ── tool calls ──> Toolbox.dispatch
 ```
 
 The loop in `agent.py` is deliberately small:
 
-1. send the question and the three tool schemas to the model,
+1. send the optional history, the question and the three tool schemas to the
+   model,
 2. if the model requests tools, dispatch each one and append the results,
 3. repeat until the model returns text or six turns have passed,
 4. return an `AgentResult` with the answer, the executed calls, the iteration
-   count and an optional error.
+   count, token usage and an optional error.
 
 Model and tool failures are captured in the result. They never crash the CLI:
 the customer sees a short apology and the staff contact details.
+
+### Conversation memory
+
+`run_agent(..., history=...)` accepts earlier `{"role": "user"|"assistant",
+"text": ...}` turns. Only text is replayed; old tool calls are not, because each
+new question calls the tools it actually needs and history does not need to
+carry provider-specific function-call metadata.
+
+The REPL fills the history only with `--session`. A single command-line question
+stays stateless. Memory is bounded twice: the last 10 turns and about 6000
+characters. A failed turn is not stored, so a network error does not poison the
+next question. `normalize_history` ignores malformed entries, and
+`trim_history` never returns a history that starts with an assistant reply.
+
+### Delayed cancellation
+
+`calculate_refund(booking_id, delay_days=0)` shifts the simulated cancellation
+moment by whole days and then applies the normal 48/24-hour rules. The model only
+chooses the number of days; the amount is still computed in code. The tool
+result includes `delay_days` and `cancel_at` so the model can say exactly which
+moment it simulated. The allowed range is 0-30 days; invalid values become a
+structured `invalid_arguments` result instead of an exception.
+
+This is what makes a real follow-up work:
+
+```text
+> I want to cancel booking CW-1002. How much will I get back?
+... 340.00 EUR ...
+> And if I cancel tomorrow instead?
+... 300.00 EUR (0% of the rental price, deposit still refunded) ...
+```
 
 ### Tool contracts
 
@@ -108,7 +187,7 @@ the customer sees a short apology and the staff contact details.
 | --- | --- | --- |
 | `search_policies` | `query`, optional `top_k` (1-10) | ranked sections with source, heading, text and score |
 | `get_booking` | `booking_id` | booking details, or `found: false` with a hint |
-| `calculate_refund` | `booking_id` | percent, rental/deposit/fee refunds, total, method, reason |
+| `calculate_refund` | `booking_id`, optional `delay_days` (0-30) | percent, rental/deposit/fee refunds, total, method, reason, `cancel_at` |
 
 `Toolbox.dispatch` validates names, argument types, unknown and missing keys. A
 bad call returns a structured error such as `invalid_arguments` or
@@ -137,6 +216,9 @@ model to say it cannot find the answer and refer the customer to staff.
 - policy questions require `search_policies`,
 - booking questions require `get_booking` (and "not found" is never guessed),
 - every refund requires `calculate_refund`; no mental arithmetic,
+- a later cancellation ("tomorrow", "in two days") is passed as `delay_days`,
+  never recomputed by the model,
+- earlier turns are context, not permission to skip a fresh tool call,
 - the agent cannot cancel or change a booking,
 - out-of-scope questions get a refusal plus the staff contact,
 - answers are in English, money is written as `340.00 EUR`,
@@ -181,6 +263,24 @@ companies, medical or legal advice) are refused briefly with the staff contact.
 Questions about CityWheels services are in scope even when the answer is "no",
 for example "Do you sell bikes?".
 
+**Memory is text-only and opt-in.** History is a convenience for the customer,
+not a source of truth. Replaying old tool results would risk stale data and
+provider-specific metadata, so only user and assistant text is kept. The prompt
+still requires a fresh `get_booking`/`calculate_refund` for every new question.
+`--session` is opt-in because stateless calls are easier to test, script and
+reason about.
+
+**One provider switch.** Provider selection is environment-driven because model
+availability and free-tier quotas change quickly. The adapter boundary also kept
+the agent loop unchanged when the OpenAI-compatible client was added: the loop
+still sees neutral messages, tools and `LLMResponse`.
+
+**Benchmarks are manual and honest.** The benchmark runner is not part of CI: it
+calls real providers and local servers. It reuses the evaluation questions and
+scoring, records blocked runs separately, and writes raw JSON as well as a
+readable table, so a surprising number can always be traced back to the actual
+answers.
+
 ## 6. Evaluation
 
 `eval/questions.json` contains 16 deterministic questions:
@@ -194,9 +294,9 @@ for example "Do you sell bikes?".
 
 Each question declares the tools that must run, regexes that must match, regexes
 that must not match, and whether a staff contact is required for a refusal.
-Scoring is local and deterministic; only the answers come from Gemini. The
-run writes `eval/results.md` with the score, tool calls, timings and full
-answers.
+Scoring is local and deterministic; only the answers come from the configured
+model. The run writes `eval/results.md` with the score, tool calls, timings and
+full answers.
 
 ### Final result
 
@@ -206,6 +306,21 @@ The answers contain the expected amounts and explanations, for example
 `340.00 EUR` for CW-1002 with a 50% rental refund and the card refund method, and
 `50.00 EUR` for CW-1003 where the rental refund is 0% but the deposit is
 returned.
+
+The same run was repeated after the Stage 10 changes. The stateless path still
+passes; the real session smoke test produced `340.00 EUR` for "now" and
+`300.00 EUR` for "tomorrow" with the correct 0% rental / full deposit
+breakdown.
+
+### Benchmarks
+
+`eval/benchmark.py` runs the same question set several times against each model
+listed in `eval/benchmark_models.json`. It records pass rate, tool accuracy,
+mean and p95 latency, completion tokens per second, errors and quota-blocked
+questions, then writes `eval/benchmarks/summary.md` plus per-model Markdown and
+raw JSON. `BENCHMARKS.md` documents the procedure for two API models and two
+LM Studio models, including tool-calling requirements, LM Studio setup and the
+fact that VRAM/cold start must be recorded manually.
 
 ### Failures found and fixed
 
@@ -293,25 +408,33 @@ harness, not in the agent.
 
 ## 8. Testing strategy
 
-The suite has **200 tests** and never touches the network or a real key:
+The suite has **277 tests** and never touches the network or a real key:
 
 - `test_clock.py` - fixed clock and DST-safe durations,
 - `test_money.py` - Decimal arithmetic, rounding and formatting,
 - `test_bookings.py` - loading, lookup, time calculations,
 - `test_refunds.py` - every supplied booking, policy boundaries, vouchers,
-  non-cancellable statuses, invariants,
+  non-cancellable statuses, delayed cancellation, invariants,
 - `test_policies.py` - parsing, tokenization, ranking, fallbacks,
-- `test_toolbox.py` - schemas, validation, safe dispatch,
-- `test_agent_loop.py` - tool loops, iteration limit, model and tool failures,
-- `test_llm.py` - message conversion, response parsing, retries, quota handling,
-- `test_cli.py` - plain/JSON output, REPL, exit codes, ASCII sanitization,
+- `test_toolbox.py` - schemas, validation, safe dispatch, `delay_days` range,
+- `test_agent_loop.py` - tool loops, iteration limit, failures, history
+  normalization and trimming, usage aggregation,
+- `test_llm.py` - Gemini message conversion, response parsing, retries, quota
+  handling, usage,
+- `test_openai_adapter.py` - schema/message conversion, tool-call ids, response
+  parsing, retries, quota headers, client factory,
+- `test_cli.py` - plain/JSON output, REPL, session memory, exit codes, ASCII
+  sanitization,
 - `test_eval_harness.py` - question validation, scoring, blocked runs, reports,
-- `test_config.py` - settings, data-directory resolution, clock parsing.
+- `test_benchmarks.py` - config validation, key resolution, metrics, reports,
+  multi-run execution, quota stop,
+- `test_config.py` - settings, provider selection, data-directory resolution,
+  clock parsing.
 
 An autouse fixture disables `load_dotenv`, so a developer's local `.env` cannot
 change test results. The CLI tests inject a scripted `FakeLLM`, so they need no
 key. CI runs the same suite on Python 3.11 and 3.12; the workflow contains no
-secrets and does not run the real evaluation.
+secrets and does not run the real evaluation or benchmark.
 
 ## 9. Known local environment warning
 
@@ -339,16 +462,21 @@ environment for this project.
 
 - **Read-only.** The agent explains refunds but cannot cancel or change a
   booking. There is no customer authentication or write API.
-- **Single-turn evaluation.** The REPL answers one question at a time; it does
-  not keep conversation memory for follow-ups such as "and if I cancel
-  tomorrow?".
+- **Memory is limited and text-only.** `--session` keeps the last 10 turns (and
+  about 6000 characters) of text. It does not replay old tool calls, and a
+  single command-line question is stateless. A long conversation eventually
+  forgets its oldest turns by design.
+- **Delayed cancellation is a simulation.** `delay_days` shifts only the
+  cancellation moment; it is not a booking change.
 - **Keyword retrieval.** The policy search is deterministic and explainable, but
   a question with no shared vocabulary can return `found: false`. The agent then
   refers the customer to staff rather than inventing an answer.
 - **English only.** The prompt and the answer language are fixed to English.
-- **Provider dependency.** Model availability and free-tier quotas change.
-  `GEMINI_MODEL` makes the model easy to swap, and quota exhaustion is reported
-  honestly rather than hidden.
+- **Provider dependency.** Model availability, tool-calling quality and free-tier
+  quotas change. `LLM_PROVIDER`/`LLM_MODEL` make the model easy to swap, and
+  quota exhaustion is reported honestly rather than hidden.
+- **Local models vary.** Small quantized models may call tools unreliably or
+  ignore the chat template. The benchmark exposes that; it does not fix it.
 - **Windows console.** Plain output converts `EUR` and ASCII punctuation
   because the default Windows console is not UTF-8. `--json` keeps exact data
   using `ensure_ascii`, so parsed values are unchanged.
@@ -358,10 +486,10 @@ environment for this project.
 
 ## 11. Next steps
 
-1. Conversation memory for follow-up questions in the REPL.
-2. A second model in the evaluation, with a small comparison table.
-3. Coverage reporting in CI (`pytest-cov` is already a dev dependency).
-4. Structured logs and metrics for tool latency and refusals.
-5. Integration with a real booking system, behind explicit confirmation and
+1. Run the local benchmarks from `BENCHMARKS.md` and add the resulting comparison
+   table to the report.
+2. Coverage reporting in CI (`pytest-cov` is already a dev dependency).
+3. Structured logs and metrics for tool latency and refusals.
+4. Integration with a real booking system, behind explicit confirmation and
    authentication.
-6. Optional multilingual answers while keeping policies in one source language.
+5. Optional multilingual answers while keeping policies in one source language.

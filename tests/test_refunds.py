@@ -189,3 +189,73 @@ def test_dst_change_uses_absolute_time_not_wall_clock():
 
     booking = make_booking(start=start)
     assert compute_refund(booking, now).refund_percent_of_rental == 100
+
+
+@pytest.mark.parametrize(
+    ("booking_id", "delay_days", "percent", "total"),
+    [
+        # CW-1002 starts 33 hours from the reference time.
+        ("CW-1002", 0, 50, "340.00"),
+        ("CW-1002", 1, 0, "300.00"),
+        # CW-1001 starts 73 hours from the reference time.
+        ("CW-1001", 0, 100, "90.00"),
+        ("CW-1001", 1, 100, "90.00"),
+        ("CW-1001", 2, 50, "70.00"),
+        ("CW-1001", 3, 0, "50.00"),
+    ],
+)
+def test_delay_days_shifts_the_cancellation_moment(
+    store, fixed_now, booking_id, delay_days, percent, total
+):
+    result = calculate_refund(
+        booking_id, store=store, now=fixed_now, delay_days=delay_days
+    )
+
+    assert result["found"] is True
+    assert result["delay_days"] == delay_days
+    assert result["cancel_at"] == (
+        fixed_now + timedelta(days=delay_days)
+    ).isoformat()
+    assert result["refund_percent_of_rental"] == percent
+    assert result["total_refund_eur"] == total
+
+
+@pytest.mark.parametrize(
+    ("delay_days", "expected_percent"),
+    [(0, 100), (1, 50), (2, 0)],
+)
+def test_delay_days_crosses_both_policy_boundaries(
+    fixed_now, delay_days, expected_percent
+):
+    # Exactly 48 hours at delay 0, exactly 24 hours at delay 1, zero at delay 2.
+    booking = make_booking(start=fixed_now + timedelta(hours=48))
+    result = compute_refund(
+        booking, fixed_now + timedelta(days=delay_days)
+    )
+    assert result.refund_percent_of_rental == expected_percent
+
+
+def test_delay_days_does_not_mutate_the_booking(store, fixed_now):
+    booking = store.get("CW-1002")
+    before = booking.to_dict()
+    calculate_refund("CW-1002", store=store, now=fixed_now, delay_days=5)
+    assert booking.to_dict() == before
+
+
+@pytest.mark.parametrize("delay_days", [-1, 31, 1.5, True, "1", None])
+def test_invalid_delay_is_rejected_without_raising(store, fixed_now, delay_days):
+    result = calculate_refund(
+        "CW-1002", store=store, now=fixed_now, delay_days=delay_days
+    )
+
+    assert result["error"] == "invalid_arguments"
+    assert "delay_days" in result["message"]
+    assert "total_refund_eur" not in result
+
+
+def test_delay_days_keeps_not_found_behaviour(store, fixed_now):
+    result = calculate_refund(
+        "CW-9999", store=store, now=fixed_now, delay_days=1
+    )
+    assert result["found"] is False
+    assert "total_refund_eur" not in result

@@ -337,3 +337,24 @@ def test_llm_response_helpers():
         "name": "get_booking",
         "args": {"booking_id": "CW-1"},
     }
+
+
+def test_parse_response_reads_gemini_usage():
+    response = SimpleNamespace(
+        text="ok",
+        function_calls=None,
+        candidates=[],
+        usage_metadata=SimpleNamespace(
+            prompt_token_count=10,
+            candidates_token_count=3,
+            total_token_count=13,
+        ),
+    )
+
+    parsed = parse_response(response)
+
+    assert parsed.usage == {
+        "prompt_tokens": 10,
+        "completion_tokens": 3,
+        "total_tokens": 13,
+    }

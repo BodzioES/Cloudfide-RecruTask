@@ -225,3 +225,32 @@ Otwarte kwestie:
 - Wyniki w dokumentacji są zgodne z `eval/results.md`: 16/16 na
   `gemini-3.5-flash-lite`.
 
+## 14. Etap 10 (opcjonalny)
+
+- **`delay_days` w `calculate_refund`:** 0 = teraz, 1 = jutro, zakres 0-30.
+  Kod przesuwa `now` i nadal stosuje reguły 48/24 h; model wybiera tylko liczbę
+  dni. Wynik zawiera `delay_days` i `cancel_at`. Błędne wartości dają
+  `invalid_arguments`, nie wyjątek.
+- **Pamięć sesji:** `run_agent(..., history=...)` przyjmuje tylko tekstowe tury
+  `user`/`assistant`. Stare wywołania narzędzi nie są odtwarzane. REPL z
+  `--session` dopisuje udane tury; bez flagi każde pytanie jest bezstanowe.
+  Limit: 10 tur i ~6000 znaków; nieudana tura nie trafia do historii.
+- **Provider:** `LLM_PROVIDER=gemini|openai-compatible`, `LLM_MODEL`,
+  `LLM_API_KEY`, `LLM_BASE_URL`. Jeden `create_client()` w `llm.py` wybiera
+  adapter. Gemini jest domyślny i nadal działa; stare `GEMINI_MODEL` /
+  `GEMINI_API_KEY` są aliasami.
+- **Adapter OpenAI:** zamienia schematy na małe litery, generuje `tool_call_id`,
+  paruje wyniki `role: tool`, czyta `usage`, obsługuje `retry-after` i
+  `QuotaExhausted`. Przetestowany lokalnym serwerem HTTP (nie tylko mockiem).
+- **Benchmark:** `eval/benchmark.py` + `eval/benchmark_models.json` (2 API +
+  2 LM Studio), 3 przebiegi, te same pytania i `--now`. Zapisuje
+  `eval/benchmarks/summary.md`, raporty `.md` i surowe `.json`. VRAM i cold
+  start trzeba dopisać ręcznie.
+- **Smoke test Gemini:** sesja `--session` z CW-1002 dała 340.00 EUR teraz i
+  300.00 EUR jutro; model poprawnie użył `delay_days=1`.
+- **Testy:** 277 przechodzą offline. Nowe pliki: `test_openai_adapter.py`,
+  `test_benchmarks.py`; rozszerzone testy zwrotów, toolboxa, agenta, CLI i
+  konfiguracji.
+- **Uwaga:** `hours-saturday` czasem gubi godzinę zamknięcia — to znana
+  flakiness modelu, nie błąd kodu; przy powtórce przechodzi.
+

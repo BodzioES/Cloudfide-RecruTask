@@ -1,0 +1,38 @@
+{
+  "questions": "questions.json",
+  "reference_now": "2026-06-10T09:00:00+02:00",
+  "runs": 3,
+  "models": [
+    {
+      "label": "gemini-3.5-flash-lite",
+      "provider": "gemini",
+      "model": "gemini-3.5-flash-lite",
+      "api_key_env": "GEMINI_API_KEY",
+      "note": "Baseline; free tier, 15 requests/min."
+    },
+    {
+      "label": "openrouter-free",
+      "provider": "openai-compatible",
+      "model": "meta-llama/llama-3.3-70b-instruct:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "note": "Second free API model; edit the model name to one you can access."
+    },
+    {
+      "label": "lmstudio-qwen3-8b",
+      "provider": "openai-compatible",
+      "model": "qwen3-8b",
+      "base_url": "http://localhost:1234/v1",
+      "api_key": "lm-studio",
+      "note": "Local LM Studio model; must support tool calling."
+    },
+    {
+      "label": "lmstudio-llama-3.1-8b",
+      "provider": "openai-compatible",
+      "model": "llama-3.1-8b-instruct",
+      "base_url": "http://localhost:1234/v1",
+      "api_key": "lm-studio",
+      "note": "Second local model; must support tool calling."
+    }
+  ]
+}

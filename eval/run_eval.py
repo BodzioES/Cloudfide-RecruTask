@@ -18,8 +18,13 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from citywheels.agent import AgentResult, run_agent
-from citywheels.config import ConfigError, Settings, load_settings
-from citywheels.llm import GeminiClient, LLMClient
+from citywheels.config import (
+    ConfigError,
+    Settings,
+    load_settings,
+    normalize_provider,
+)
+from citywheels.llm import LLMClient, create_client
 from citywheels.tools import Toolbox
 
 EVAL_DIR = Path(__file__).resolve().parent
@@ -300,6 +305,7 @@ def render_report(
     model: str,
     reference_now: str,
     generated_at: str,
+    provider: str | None = None,
 ) -> str:
     executed = [run for run in runs if not run.blocked]
     blocked = len(runs) - len(executed)
@@ -315,6 +321,10 @@ def render_report(
         "# Evaluation results",
         "",
         f"- **Model:** `{model}`",
+    ]
+    if provider:
+        lines.append(f"- **Provider:** `{provider}`")
+    lines += [
         f"- **Reference time:** `{reference_now}`",
         f"- **Generated:** `{generated_at}`",
         f"- **Score:** {score}",
@@ -386,12 +396,11 @@ def render_report(
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_client(settings: Settings) -> GeminiClient:
+def build_client(settings: Settings) -> LLMClient:
     """Evaluation retries more patiently than a single interactive question."""
 
-    return GeminiClient(
-        api_key=settings.require_api_key(),
-        model=settings.model,
+    return create_client(
+        settings,
         timeout_ms=90_000,
         max_attempts=5,
         base_delay=2.0,
@@ -410,7 +419,15 @@ def main(argv: list[str] | None = None) -> int:
         metavar="ID",
         help="Run only these ids (repeatable or comma-separated).",
     )
-    parser.add_argument("--model", help="Override GEMINI_MODEL for this run.")
+    parser.add_argument("--model", help="Override LLM_MODEL for this run.")
+    parser.add_argument(
+        "--provider",
+        help="Override LLM_PROVIDER (gemini or openai-compatible).",
+    )
+    parser.add_argument(
+        "--base-url",
+        help="Override LLM_BASE_URL for an OpenAI-compatible endpoint.",
+    )
     parser.add_argument("--now", metavar="ISO8601", help="Override the reference time.")
     parser.add_argument(
         "--delay",
@@ -427,8 +444,19 @@ def main(argv: list[str] | None = None) -> int:
             limit=args.limit,
         )
         settings = load_settings(now=args.now)
+        if args.provider:
+            settings = replace(
+                settings, provider=normalize_provider(args.provider)
+            )
         if args.model:
             settings = replace(settings, model=args.model)
+        if args.base_url:
+            if settings.provider != "openai":
+                raise ConfigError(
+                    "--base-url requires --provider openai-compatible "
+                    "(or LLM_PROVIDER=openai-compatible)."
+                )
+            settings = replace(settings, base_url=args.base_url)
         client = build_client(settings)
         tools = Toolbox.from_data_dir(settings.data_dir, now=settings.now)
     except (EvalDataError, ConfigError, OSError, ValueError) as error:
@@ -456,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         model=settings.model,
         reference_now=settings.now.isoformat(),
         generated_at=generated_at,
+        provider=settings.provider,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report, encoding="utf-8")

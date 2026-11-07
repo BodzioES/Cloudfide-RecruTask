@@ -70,8 +70,9 @@ TOOL_SCHEMAS: list[dict[str, object]] = [
         "name": "calculate_refund",
         "description": (
             "Calculate exactly how much the customer gets back if they cancel "
-            "this booking right now. The amount is computed by code from the "
-            "cancellation rules; never calculate or estimate it yourself."
+            "this booking. The amount is computed by code from the cancellation "
+            "rules; never calculate or estimate it yourself. Use delay_days=0 "
+            "for a cancellation right now and delay_days=1 for tomorrow."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -79,6 +80,14 @@ TOOL_SCHEMAS: list[dict[str, object]] = [
                 "booking_id": {
                     "type": "STRING",
                     "description": "Booking number such as CW-1001.",
+                },
+                "delay_days": {
+                    "type": "INTEGER",
+                    "description": (
+                        "Whole days from now to the simulated cancellation. "
+                        "0 means now (the default), 1 means tomorrow. "
+                        f"Allowed range 0-{refund_tools.MAX_DELAY_DAYS}."
+                    ),
                 },
             },
             "required": ["booking_id"],
@@ -95,7 +104,7 @@ _REQUIRED: dict[str, dict[str, type]] = {
 _OPTIONAL: dict[str, dict[str, type]] = {
     "search_policies": {"top_k": int},
     "get_booking": {},
-    "calculate_refund": {},
+    "calculate_refund": {"delay_days": int},
 }
 
 
@@ -151,6 +160,17 @@ def _validate(name: str, args: dict[str, object]) -> dict[str, object] | None:
                 f"Argument '{argument}' must not be empty.",
             )
 
+    if name == "calculate_refund" and "delay_days" in args:
+        delay = args["delay_days"]
+        if isinstance(delay, int) and not isinstance(delay, bool):
+            if not 0 <= delay <= refund_tools.MAX_DELAY_DAYS:
+                return _error(
+                    "invalid_arguments",
+                    name,
+                    f"Argument 'delay_days' must be between 0 and "
+                    f"{refund_tools.MAX_DELAY_DAYS}.",
+                )
+
     return None
 
 
@@ -182,6 +202,7 @@ class Toolbox:
                 args["booking_id"],  # type: ignore[arg-type]
                 store=self._store,
                 now=self._now,
+                delay_days=args.get("delay_days", 0),  # type: ignore[arg-type]
             ),
         }
 
