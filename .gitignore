@@ -22,3 +22,6 @@ htmlcov/
 # Local benchmark configuration (may contain API keys)
 eval/benchmark_models.local.json
 eval/benchmark_models.*.json
+
+# Personal notes (kept locally, never committed)
+myNote.md
